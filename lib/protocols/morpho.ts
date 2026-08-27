@@ -1,6 +1,7 @@
 import { type Address, createPublicClient, http } from "viem";
 import { base } from "viem/chains";
 import {
+  BASE_RPC_URL,
   MORPHO_GRAPHQL_URL,
   MORPHO_MIN_VAULT_TVL_USD,
   USDC_ADDRESS,
@@ -74,7 +75,7 @@ interface MorphoVaultInfo {
   liquidityRatio: number;
 }
 
-const publicClient = createPublicClient({ chain: base, transport: http() });
+const publicClient = createPublicClient({ chain: base, transport: http(BASE_RPC_URL) });
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([

@@ -2,7 +2,7 @@ import { createMoonwellClient } from "@moonwell-fi/moonwell-sdk";
 import type { Address } from "viem";
 import { createPublicClient, http } from "viem";
 import { base } from "viem/chains";
-import { MOONWELL_MUSDC_ADDRESS, USDC_ADDRESS } from "@/lib/config";
+import { BASE_RPC_URL, MOONWELL_MUSDC_ADDRESS, USDC_ADDRESS } from "@/lib/config";
 import type { ProtocolAdapter, ProtocolApy, TxRequest } from "./types";
 
 // Moonwell's mUSDC is a Compound v2-style mToken, not ERC-4626 — different call
@@ -48,10 +48,10 @@ const erc20ApproveAbi = [
   },
 ] as const;
 
-const publicClient = createPublicClient({ chain: base, transport: http() });
+const publicClient = createPublicClient({ chain: base, transport: http(BASE_RPC_URL) });
 
 const moonwellClient = createMoonwellClient({
-  networks: { base: { rpcUrls: ["https://mainnet.base.org"] } },
+  networks: { base: { rpcUrls: [BASE_RPC_URL] } },
 });
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -67,14 +67,16 @@ export const moonwellAdapter: ProtocolAdapter = {
   id: "moonwell",
 
   async getApy(): Promise<ProtocolApy> {
+    // Note: getMarket (singular) was tried here but internally calls the same
+    // full getMarketsData() fetch and just filters client-side — no actual RPC
+    // reduction, so this stays as getMarkets(). The real fix for the production
+    // timeout was the RPC endpoint (BASE_RPC_URL), not which SDK method is used.
     const markets = await withTimeout(
       moonwellClient.getMarkets({ chainId: 8453 }),
       10_000,
       "Moonwell getMarkets"
     );
-    const market = markets.find(
-      (m) => m.marketKey === "MOONWELL_USDC" && !m.deprecated
-    );
+    const market = markets.find((m) => m.marketKey === "MOONWELL_USDC" && !m.deprecated);
     if (!market) throw new Error("Moonwell USDC market not found on Base");
 
     // Verified live 2026-08-27: baseSupplyApy/rewards[].supplyApr are already

@@ -1,6 +1,7 @@
 import { cookieStorage, createConfig, createStorage, http } from "wagmi";
 import { base, baseSepolia } from "wagmi/chains";
 import { baseAccount, injected, walletConnect } from "wagmi/connectors";
+import { BASE_RPC_URL } from "@/lib/config";
 
 const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
@@ -23,7 +24,9 @@ export function getConfig() {
     storage: createStorage({ storage: cookieStorage }),
     ssr: true,
     transports: {
-      [base.id]: http(),
+      // Explicit URL — viem's default for Base is the official mainnet.base.org,
+      // which is rate-limited and unreliable under real traffic (see lib/config.ts).
+      [base.id]: http(BASE_RPC_URL),
       [baseSepolia.id]: http(),
     },
   });

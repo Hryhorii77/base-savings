@@ -2,6 +2,14 @@ import type { Address } from "viem";
 
 export const BASE_CHAIN_ID = 8453;
 
+// viem's built-in default RPC for Base is the official https://mainnet.base.org,
+// which is rate-limited and not intended for production traffic — observed live
+// causing a real user's Moonwell SDK call to hang past a 10s timeout. PublicNode's
+// endpoint has materially higher rate limits for free public use. Used explicitly
+// everywhere a client is created (wagmi transports, both protocol adapters, and
+// the Moonwell SDK client) so nothing silently falls back to the rate-limited default.
+export const BASE_RPC_URL = "https://base-rpc.publicnode.com";
+
 // Verified against the installed @moonwell-fi/moonwell-sdk's own shipped
 // environment config (node_modules/@moonwell-fi/moonwell-sdk/_types/client/createMoonwellClient.d.ts)
 // and cross-checked as the `asset.address` returned by Morpho's live GraphQL API.
