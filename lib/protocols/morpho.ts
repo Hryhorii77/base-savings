@@ -76,6 +76,15 @@ interface MorphoVaultInfo {
 
 const publicClient = createPublicClient({ chain: base, transport: http() });
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 let cachedVault: MorphoVaultInfo | null = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 60_000;
@@ -104,6 +113,7 @@ async function fetchTopUsdcVault(): Promise<MorphoVaultInfo> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new Error(`Morpho GraphQL request failed: ${res.status}`);
   const json = await res.json();
@@ -168,18 +178,26 @@ export const morphoAdapter: ProtocolAdapter = {
 
   async getUserBalance(userAddress: Address): Promise<bigint> {
     const vault = await fetchTopUsdcVault();
-    const shares = await publicClient.readContract({
-      address: vault.address,
-      abi: erc4626Abi,
-      functionName: "balanceOf",
-      args: [userAddress],
-    });
-    return publicClient.readContract({
-      address: vault.address,
-      abi: erc4626Abi,
-      functionName: "convertToAssets",
-      args: [shares],
-    });
+    const shares = await withTimeout(
+      publicClient.readContract({
+        address: vault.address,
+        abi: erc4626Abi,
+        functionName: "balanceOf",
+        args: [userAddress],
+      }),
+      10_000,
+      "Morpho vault balanceOf"
+    );
+    return withTimeout(
+      publicClient.readContract({
+        address: vault.address,
+        abi: erc4626Abi,
+        functionName: "convertToAssets",
+        args: [shares],
+      }),
+      10_000,
+      "Morpho vault convertToAssets"
+    );
   },
 
   async buildDepositTx(userAddress: Address, amount: bigint): Promise<TxRequest[]> {

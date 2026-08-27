@@ -22,8 +22,20 @@ const balanceOfAbi = [
 
 export function BalanceDashboard() {
   const { address } = useAccount();
-  const { data: apys, isLoading: apysLoading } = useProtocolApys();
-  const { data: positions, isLoading: positionsLoading } = useUserPositions(address);
+  const {
+    data: apys,
+    isLoading: apysLoading,
+    isError: apysError,
+    error: apysErrorObj,
+    refetch: refetchApys,
+  } = useProtocolApys();
+  const {
+    data: positions,
+    isLoading: positionsLoading,
+    isError: positionsError,
+    error: positionsErrorObj,
+    refetch: refetchPositions,
+  } = useUserPositions(address);
   const { data: walletUsdc } = useReadContract({
     address: USDC_ADDRESS,
     abi: balanceOfAbi,
@@ -31,6 +43,26 @@ export function BalanceDashboard() {
     args: address ? [address] : undefined,
     query: { enabled: !!address, refetchInterval: 30_000 },
   });
+
+  if (apysError || positionsError) {
+    const message = (apysErrorObj ?? positionsErrorObj)?.message ?? "Unknown error";
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+        <p className="font-medium">Couldn&apos;t load market data.</p>
+        <p className="mt-1 text-xs opacity-80">{message}</p>
+        <button
+          type="button"
+          onClick={() => {
+            refetchApys();
+            refetchPositions();
+          }}
+          className="mt-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-medium hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (apysLoading || positionsLoading || !apys || !positions) {
     return <p className="text-sm text-zinc-500">Loading market data…</p>;

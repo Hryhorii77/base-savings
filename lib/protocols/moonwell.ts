@@ -54,11 +54,24 @@ const moonwellClient = createMoonwellClient({
   networks: { base: { rpcUrls: ["https://mainnet.base.org"] } },
 });
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export const moonwellAdapter: ProtocolAdapter = {
   id: "moonwell",
 
   async getApy(): Promise<ProtocolApy> {
-    const markets = await moonwellClient.getMarkets({ chainId: 8453 });
+    const markets = await withTimeout(
+      moonwellClient.getMarkets({ chainId: 8453 }),
+      10_000,
+      "Moonwell getMarkets"
+    );
     const market = markets.find(
       (m) => m.marketKey === "MOONWELL_USDC" && !m.deprecated
     );
@@ -85,12 +98,16 @@ export const moonwellAdapter: ProtocolAdapter = {
   },
 
   async getUserBalance(userAddress: Address): Promise<bigint> {
-    return publicClient.readContract({
-      address: MOONWELL_MUSDC_ADDRESS,
-      abi: mTokenAbi,
-      functionName: "balanceOfUnderlying",
-      args: [userAddress],
-    });
+    return withTimeout(
+      publicClient.readContract({
+        address: MOONWELL_MUSDC_ADDRESS,
+        abi: mTokenAbi,
+        functionName: "balanceOfUnderlying",
+        args: [userAddress],
+      }),
+      10_000,
+      "Moonwell balanceOfUnderlying"
+    );
   },
 
   async buildDepositTx(_userAddress: Address, amount: bigint): Promise<TxRequest[]> {
