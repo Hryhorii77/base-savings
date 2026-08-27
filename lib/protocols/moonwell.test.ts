@@ -1,13 +1,8 @@
 import type { Address } from "viem";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getMarketsMock, readContractMock } = vi.hoisted(() => ({
-  getMarketsMock: vi.fn(),
+const { readContractMock } = vi.hoisted(() => ({
   readContractMock: vi.fn(),
-}));
-
-vi.mock("@moonwell-fi/moonwell-sdk", () => ({
-  createMoonwellClient: () => ({ getMarkets: getMarketsMock }),
 }));
 
 vi.mock("viem", async (importOriginal) => {
@@ -18,89 +13,91 @@ vi.mock("viem", async (importOriginal) => {
   };
 });
 
-function makeMarket(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
-    marketKey: "MOONWELL_USDC",
-    deprecated: false,
-    underlyingToken: { symbol: "USDC" },
-    baseSupplyApy: 3.5,
-    totalSupplyApr: 3.4,
-    rewards: [{ token: { symbol: "WELL" }, supplyApr: 0.5 }],
-    cash: { value: 5_000_000 },
-    totalSupply: { value: 10_000_000 },
-    ...overrides,
-  };
+interface MarketFixture {
+  ratePerSecond: bigint;
+  cash: bigint;
+  totalBorrows: bigint;
+  totalReserves: bigint;
+}
+
+function mockMarket({ ratePerSecond, cash, totalBorrows, totalReserves }: MarketFixture) {
+  readContractMock.mockImplementation(({ functionName }: { functionName: string }) => {
+    switch (functionName) {
+      case "supplyRatePerTimestamp":
+        return Promise.resolve(ratePerSecond);
+      case "getCash":
+        return Promise.resolve(cash);
+      case "totalBorrows":
+        return Promise.resolve(totalBorrows);
+      case "totalReserves":
+        return Promise.resolve(totalReserves);
+      default:
+        return Promise.reject(new Error(`unexpected functionName: ${functionName}`));
+    }
+  });
 }
 
 describe("moonwellAdapter", () => {
   beforeEach(() => {
-    getMarketsMock.mockReset();
     readContractMock.mockReset();
   });
 
-  it("converts baseSupplyApy + reward APRs (already percentages, not fractions) into bps", async () => {
-    getMarketsMock.mockResolvedValue([makeMarket({ baseSupplyApy: 3.5, rewards: [{ supplyApr: 0.5 }] })]);
+  it("computes APY from supplyRatePerTimestamp using compound interest", async () => {
+    // Real observed value for this exact market (2026-08-27): rate ≈
+    // 27735072134 / 1e18 per second compounds to ~139.8% APY.
+    mockMarket({
+      ratePerSecond: 27_735_072_134n,
+      cash: 1n,
+      totalBorrows: 13_257_361_188_045n,
+      totalReserves: 23_675_616_034n,
+    });
 
     const { moonwellAdapter } = await import("./moonwell");
     const apy = await moonwellAdapter.getApy();
 
-    // 3.5% base + 0.5% reward = 4.0% = 400 bps
-    expect(apy.apyBps).toBe(400);
     expect(apy.protocol).toBe("moonwell");
     expect(apy.label).toBe("Moonwell USDC");
+    // ~139.8% APY == ~13980 bps; allow a little slack for floating point.
+    expect(apy.apyBps).toBeGreaterThan(13_800);
+    expect(apy.apyBps).toBeLessThan(14_100);
   });
 
-  it("sums multiple reward tokens into the total APY", async () => {
-    getMarketsMock.mockResolvedValue([
-      makeMarket({ baseSupplyApy: 2, rewards: [{ supplyApr: 0.3 }, { supplyApr: 0.2 }] }),
-    ]);
+  it("returns ~0 APY when the supply rate is 0", async () => {
+    mockMarket({ ratePerSecond: 0n, cash: 1_000_000n, totalBorrows: 0n, totalReserves: 0n });
 
     const { moonwellAdapter } = await import("./moonwell");
     const apy = await moonwellAdapter.getApy();
 
-    expect(apy.apyBps).toBe(250);
+    expect(apy.apyBps).toBe(0);
   });
 
-  it("ignores a deprecated MOONWELL_USDC entry and throws if no active one exists", async () => {
-    getMarketsMock.mockResolvedValue([makeMarket({ deprecated: true })]);
-
-    const { moonwellAdapter } = await import("./moonwell");
-    await expect(moonwellAdapter.getApy()).rejects.toThrow();
-  });
-
-  it("throws when no MOONWELL_USDC market is present", async () => {
-    getMarketsMock.mockResolvedValue([makeMarket({ marketKey: "MOONWELL_ETH" })]);
-
-    const { moonwellAdapter } = await import("./moonwell");
-    await expect(moonwellAdapter.getApy()).rejects.toThrow();
-  });
-
-  it("computes liquidityRatio as cash over totalSupply", async () => {
-    getMarketsMock.mockResolvedValue([
-      makeMarket({ cash: { value: 2_500_000 }, totalSupply: { value: 10_000_000 } }),
-    ]);
+  it("computes liquidityRatio as cash / (cash + totalBorrows - totalReserves)", async () => {
+    mockMarket({
+      ratePerSecond: 1_000_000n,
+      cash: 25_000_000n,
+      totalBorrows: 75_000_000n,
+      totalReserves: 0n,
+    });
 
     const { moonwellAdapter } = await import("./moonwell");
     const apy = await moonwellAdapter.getApy();
 
+    // 25M / (25M + 75M - 0) = 0.25
     expect(apy.liquidityRatio).toBeCloseTo(0.25, 5);
   });
 
   it("reports near-zero liquidity for a fully-utilized market (the real Base USDC condition observed live)", async () => {
-    getMarketsMock.mockResolvedValue([
-      makeMarket({
-        baseSupplyApy: 139.42,
-        rewards: [{ supplyApr: 0.07 }],
-        cash: { value: 0 },
-        totalSupply: { value: 13_288_846 },
-      }),
-    ]);
+    mockMarket({
+      ratePerSecond: 27_735_072_134n,
+      cash: 1n,
+      totalBorrows: 13_257_361_188_045n,
+      totalReserves: 23_675_616_034n,
+    });
 
     const { moonwellAdapter } = await import("./moonwell");
     const apy = await moonwellAdapter.getApy();
 
-    expect(apy.liquidityRatio).toBe(0);
-    expect(apy.apyBps).toBeGreaterThan(10_000); // a real >100% APY market condition
+    expect(apy.liquidityRatio).toBeLessThan(0.001);
   });
 
   it("reads the user's underlying balance via balanceOfUnderlying", async () => {
