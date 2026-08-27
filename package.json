@@ -1,6 +1,7 @@
 {
   "name": "base-savings",
   "version": "0.1.0",
+  "description": "Non-custodial USDC savings on Base — compares Morpho and Moonwell APY and lets you deposit, withdraw, and rebalance via wallet-signed transactions.",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,16 +12,13 @@
   },
   "dependencies": {
     "@base-org/account": "^2.5.10",
-    "@morpho-org/blue-sdk": "^6.6.0",
-    "@morpho-org/morpho-sdk": "^5.7.0",
     "@tanstack/react-query": "^5.102.8",
     "@walletconnect/ethereum-provider": "^2.23.10",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "viem": "^2.56.0",
-    "wagmi": "^3.7.6",
-    "zod": "^4.4.3"
+    "wagmi": "^3.7.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -4,22 +4,24 @@ export const BASE_CHAIN_ID = 8453;
 
 // viem's built-in default RPC for Base is the official https://mainnet.base.org,
 // which is rate-limited and not intended for production traffic — observed live
-// causing a real user's Moonwell SDK call to hang past a 10s timeout. PublicNode's
-// endpoint has materially higher rate limits for free public use. Used explicitly
-// everywhere a client is created (wagmi transports, both protocol adapters, and
-// the Moonwell SDK client) so nothing silently falls back to the rate-limited default.
+// causing a real user's Moonwell market-data call to hang past a 10s timeout.
+// PublicNode's endpoint has materially higher rate limits for free public use.
+// Used explicitly everywhere a client is created (wagmi transports and both
+// protocol adapters) so nothing silently falls back to the rate-limited default.
 export const BASE_RPC_URL = "https://base-rpc.publicnode.com";
 
-// Verified against the installed @moonwell-fi/moonwell-sdk's own shipped
-// environment config (node_modules/@moonwell-fi/moonwell-sdk/_types/client/createMoonwellClient.d.ts)
-// and cross-checked as the `asset.address` returned by Morpho's live GraphQL API.
+// Originally verified against @moonwell-fi/moonwell-sdk's shipped environment
+// config, and cross-checked as the `asset.address` returned by Morpho's live
+// GraphQL API. That SDK is no longer a dependency (see lib/protocols/moonwell.ts)
+// but the address itself doesn't change — re-verify against BaseScan if unsure.
 export const USDC_ADDRESS: Address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 export const USDC_DECIMALS = 6;
 
-// Verified against the installed @moonwell-fi/moonwell-sdk's shipped config for
+// Originally verified against @moonwell-fi/moonwell-sdk's shipped config for
 // the `base` environment's MOONWELL_USDC market token (the real Moonwell lending
 // market, NOT the Morpho vault that happens to be branded "Moonwell Flagship USDC" —
-// see the naming-trap note in lib/protocols/morpho.ts).
+// see the naming-trap note in lib/protocols/morpho.ts). That SDK is no longer a
+// dependency (see lib/protocols/moonwell.ts) but the address itself doesn't change.
 export const MOONWELL_MUSDC_ADDRESS: Address = "0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22";
 export const MOONWELL_MUSDC_DECIMALS = 8;
 
