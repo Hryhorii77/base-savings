@@ -14,5 +14,9 @@ export function useProtocolApys() {
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
+    // Default retry (3x with backoff) plus our own 10s per-call timeouts could
+    // silently sit on "Loading…" for ~45s before ever surfacing an error.
+    retry: 1,
+    retryDelay: 2_000,
   });
 }

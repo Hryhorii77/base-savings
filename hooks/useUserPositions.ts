@@ -29,5 +29,7 @@ export function useUserPositions(userAddress: Address | undefined) {
       return { morphoBalance, moonwellBalance, currentAllocation };
     },
     refetchInterval: 30_000,
+    retry: 1,
+    retryDelay: 2_000,
   });
 }
