@@ -2,6 +2,7 @@
 
 import { useAccount } from "wagmi";
 import { BalanceDashboard } from "@/components/BalanceDashboard";
+import { NetworkGuard } from "@/components/NetworkGuard";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 
 export default function Home() {
@@ -17,13 +18,15 @@ export default function Home() {
       </div>
 
       <p className="mt-2 w-full max-w-2xl text-sm text-zinc-500">
-        Non-custodial USDC savings on Base. Deposit into whichever of Morpho or
-        Moonwell is paying more — every transaction is signed by you.
+        Non-custodial USDC savings on Base. Deposit into whichever lending market is
+        paying more — every transaction is signed by you.
       </p>
 
       <div className="mt-10 w-full max-w-2xl">
         {isConnected ? (
-          <BalanceDashboard />
+          <NetworkGuard>
+            <BalanceDashboard />
+          </NetworkGuard>
         ) : (
           <p className="text-sm text-zinc-500">Connect your wallet to get started.</p>
         )}

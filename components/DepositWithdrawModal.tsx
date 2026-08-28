@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAccount, useConfig, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
+import { BASE_CHAIN_ID } from "@/lib/config";
 import { formatUsdc, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter } from "@/lib/protocols/types";
 
@@ -46,13 +47,19 @@ export function DepositWithdrawModal({
           : await adapter.buildWithdrawTx(address, amount);
 
       for (const tx of txs) {
+        // Explicit chainId — without it, wagmi submits to whatever chain the
+        // wallet is currently connected to rather than enforcing Base. The
+        // NetworkGuard above the dashboard already blocks reaching this modal
+        // on the wrong chain; this is a second layer in case that ever races
+        // or gets bypassed (e.g. the wallet switches networks mid-session).
         const hash = await writeContractAsync({
           address: tx.address,
           abi: tx.abi,
           functionName: tx.functionName,
           args: tx.args,
+          chainId: BASE_CHAIN_ID,
         });
-        await waitForTransactionReceipt(config, { hash });
+        await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
       }
 
       await queryClient.invalidateQueries({ queryKey: ["user-positions"] });
