@@ -1,17 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { moonwellAdapter } from "@/lib/protocols/moonwell";
-import { morphoAdapter } from "@/lib/protocols/morpho";
+import { PROTOCOL_ADAPTERS } from "@/lib/protocols";
+import type { ProtocolApy } from "@/lib/protocols/types";
 
 export function useProtocolApys() {
-  return useQuery({
+  return useQuery<ProtocolApy[]>({
     queryKey: ["protocol-apys"],
-    queryFn: async () => {
-      const [morpho, moonwell] = await Promise.all([
-        morphoAdapter.getApy(),
-        moonwellAdapter.getApy(),
-      ]);
-      return { morpho, moonwell };
-    },
+    queryFn: () => Promise.all(PROTOCOL_ADAPTERS.map((adapter) => adapter.getApy())),
     refetchInterval: 30_000,
     staleTime: 15_000,
     // Default retry (3x with backoff) plus our own 10s per-call timeouts could

@@ -1,34 +1,26 @@
 "use client";
 
-import { recommend, type Protocol } from "@/lib/allocation";
-import {
-  LOW_LIQUIDITY_THRESHOLD,
-  MIN_MOVE_THRESHOLD_BPS,
-  MOONWELL_DEPOSITS_PAUSED,
-} from "@/lib/config";
+import { recommend } from "@/lib/allocation";
+import { LOW_LIQUIDITY_THRESHOLD, MIN_MOVE_THRESHOLD_BPS, PROTOCOL_DEPOSITS_ENABLED } from "@/lib/config";
+import type { ProtocolApy, ProtocolId } from "@/lib/protocols/types";
 
 export function AllocationBanner({
-  morphoApyBps,
-  moonwellApyBps,
-  morphoLiquidityRatio,
-  moonwellLiquidityRatio,
-  currentAllocation,
+  apys,
+  heldProtocols,
 }: {
-  morphoApyBps: number;
-  moonwellApyBps: number;
-  morphoLiquidityRatio: number;
-  moonwellLiquidityRatio: number;
-  currentAllocation: Protocol | "none" | "split";
+  apys: ProtocolApy[];
+  heldProtocols: ProtocolId[];
 }) {
   const result = recommend({
-    morphoApyBps,
-    moonwellApyBps,
-    morphoLiquidityRatio,
-    moonwellLiquidityRatio,
-    currentAllocation,
+    protocols: apys.map((apy) => ({
+      protocol: apy.protocol,
+      apyBps: apy.apyBps,
+      liquidityRatio: apy.liquidityRatio,
+      depositsEnabled: PROTOCOL_DEPOSITS_ENABLED[apy.protocol],
+    })),
+    heldProtocols,
     minMoveThresholdBps: MIN_MOVE_THRESHOLD_BPS,
     lowLiquidityThreshold: LOW_LIQUIDITY_THRESHOLD,
-    moonwellDepositsPaused: MOONWELL_DEPOSITS_PAUSED,
   });
 
   if (!result.shouldMove) {

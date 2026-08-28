@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import type { ProtocolId } from "./protocols/types";
 
 export const BASE_CHAIN_ID = 8453;
 
@@ -25,6 +26,16 @@ export const USDC_DECIMALS = 6;
 export const MOONWELL_MUSDC_ADDRESS: Address = "0xEdc817A28E8B93B03976FBd4a3dDBc9f7D176c22";
 export const MOONWELL_MUSDC_DECIMALS = 8;
 
+// Verified live on-chain 2026-08-28: Pool.getReserveData(USDC).aTokenAddress
+// returned this exact address; both confirmed correct against BaseScan.
+export const AAVE_POOL_ADDRESS: Address = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5";
+export const AAVE_AUSDC_ADDRESS: Address = "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB";
+
+// Verified live on-chain 2026-08-28: Comet.baseToken() on this address returns
+// USDC_ADDRESS above, confirming this is the Base USDC Comet market (not one of
+// Compound's other Base Comet deployments, e.g. for WETH).
+export const COMPOUND_COMET_ADDRESS: Address = "0xb125E6687d4313864e53df431d5425969c15Eb2F";
+
 export const MORPHO_GRAPHQL_URL = "https://api.morpho.org/graphql";
 
 // Filters out dust/manipulated Morpho vaults advertising absurd APYs on near-zero
@@ -46,13 +57,24 @@ export const MIN_MOVE_THRESHOLD_BPS = 25;
 // a very high headline APY — exactly the case this guards against.
 export const LOW_LIQUIDITY_THRESHOLD = 0.15;
 
-// Moonwell suffered an $8.7M oracle-manipulation exploit on Base on 2026-08-27
-// (illiquid MAMO collateral price was manipulated to over-borrow real assets,
-// including USDC — Moonwell responded by setting borrow caps to 1 wei across
-// all Base Core Markets). This directly explains the near-zero liquidity we'd
-// already been flagging on Moonwell's USDC market. New deposits are paused
-// here until Moonwell's post-incident review is public and the market looks
-// healthy again — flip back to false once that's confirmed.
+// Per-protocol kill switch — set to false to pull a protocol out of new-deposit
+// recommendations during a security incident (the allocation engine urges
+// withdrawal for anyone already holding a disabled protocol, regardless of its
+// APY; see lib/allocation.ts). Withdrawals always stay enabled regardless of
+// this flag — it only gates new deposits.
+//
+// moonwell: false because Moonwell suffered an $8.7M oracle-manipulation
+// exploit on Base on 2026-08-27 (illiquid MAMO collateral price was manipulated
+// to over-borrow real assets, including USDC — Moonwell responded by setting
+// borrow caps to 1 wei across all Base Core Markets). This directly explains
+// the near-zero liquidity we'd already been flagging on Moonwell's USDC market.
+// Flip back to true once Moonwell's post-incident review is public and the
+// market looks healthy again.
 // Sources: theblock.co/news/defi/2026-08-27-moonwell-investigates-base-lending-market-issue-412913,
 // techtimes.com/articles/325839 ("third failure in 11 months")
-export const MOONWELL_DEPOSITS_PAUSED = true;
+export const PROTOCOL_DEPOSITS_ENABLED: Record<ProtocolId, boolean> = {
+  morpho: true,
+  moonwell: false,
+  aave: true,
+  compound: true,
+};

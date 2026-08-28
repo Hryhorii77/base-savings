@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import type { ProtocolApy } from "@/lib/protocols/types";
-import { moonwellAdapter } from "@/lib/protocols/moonwell";
-import { morphoAdapter } from "@/lib/protocols/morpho";
-import { LOW_LIQUIDITY_THRESHOLD, MOONWELL_DEPOSITS_PAUSED } from "@/lib/config";
+import { PROTOCOL_ADAPTERS } from "@/lib/protocols";
+import { LOW_LIQUIDITY_THRESHOLD, PROTOCOL_DEPOSITS_ENABLED } from "@/lib/config";
 import { formatBps, formatUsdc } from "@/lib/format";
 import { DepositWithdrawModal } from "./DepositWithdrawModal";
 
@@ -20,9 +19,11 @@ export function ProtocolCard({
   const [modalMode, setModalMode] = useState<"deposit" | "withdraw" | null>(null);
   if (!apy) return null;
 
-  const adapter = apy.protocol === "morpho" ? morphoAdapter : moonwellAdapter;
-  const isIncident = apy.protocol === "moonwell" && MOONWELL_DEPOSITS_PAUSED;
+  const adapter = PROTOCOL_ADAPTERS.find((a) => a.id === apy.protocol);
+  const isIncident = !PROTOCOL_DEPOSITS_ENABLED[apy.protocol];
   const isLowLiquidity = !isIncident && apy.liquidityRatio < LOW_LIQUIDITY_THRESHOLD;
+
+  if (!adapter) return null;
 
   return (
     <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">

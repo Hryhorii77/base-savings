@@ -1,32 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Address } from "viem";
-import type { Protocol } from "@/lib/allocation";
-import { moonwellAdapter } from "@/lib/protocols/moonwell";
-import { morphoAdapter } from "@/lib/protocols/morpho";
+import { PROTOCOL_ADAPTERS } from "@/lib/protocols";
+import type { ProtocolId } from "@/lib/protocols/types";
+
+export interface UserPositions {
+  balances: Partial<Record<ProtocolId, bigint>>;
+  heldProtocols: ProtocolId[];
+}
 
 export function useUserPositions(userAddress: Address | undefined) {
-  return useQuery({
+  return useQuery<UserPositions>({
     queryKey: ["user-positions", userAddress],
     enabled: !!userAddress,
     queryFn: async () => {
       const address = userAddress as Address;
-      const [morphoBalance, moonwellBalance] = await Promise.all([
-        morphoAdapter.getUserBalance(address),
-        moonwellAdapter.getUserBalance(address),
-      ]);
+      const balanceEntries = await Promise.all(
+        PROTOCOL_ADAPTERS.map(async (adapter) => [adapter.id, await adapter.getUserBalance(address)] as const)
+      );
 
-      const hasMorpho = morphoBalance > 0n;
-      const hasMoonwell = moonwellBalance > 0n;
-      const currentAllocation: Protocol | "none" | "split" =
-        hasMorpho && hasMoonwell
-          ? "split"
-          : hasMorpho
-            ? "morpho"
-            : hasMoonwell
-              ? "moonwell"
-              : "none";
+      const balances = Object.fromEntries(balanceEntries) as Partial<Record<ProtocolId, bigint>>;
+      const heldProtocols = balanceEntries.filter(([, balance]) => balance > 0n).map(([id]) => id);
 
-      return { morphoBalance, moonwellBalance, currentAllocation };
+      return { balances, heldProtocols };
     },
     refetchInterval: 30_000,
     retry: 1,

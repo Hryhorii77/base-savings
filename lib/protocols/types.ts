@@ -1,6 +1,6 @@
 import type { Address } from "viem";
 
-export type ProtocolId = "morpho" | "moonwell";
+export type ProtocolId = "morpho" | "moonwell" | "aave" | "compound";
 
 export interface ProtocolApy {
   protocol: ProtocolId;

@@ -79,25 +79,17 @@ export function BalanceDashboard() {
         </p>
       </div>
 
-      <AllocationBanner
-        morphoApyBps={apys.morpho.apyBps}
-        moonwellApyBps={apys.moonwell.apyBps}
-        morphoLiquidityRatio={apys.morpho.liquidityRatio}
-        moonwellLiquidityRatio={apys.moonwell.liquidityRatio}
-        currentAllocation={positions.currentAllocation}
-      />
+      <AllocationBanner apys={apys} heldProtocols={positions.heldProtocols} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <ProtocolCard
-          apy={apys.morpho}
-          balance={positions.morphoBalance}
-          walletUsdcBalance={walletUsdcBalance}
-        />
-        <ProtocolCard
-          apy={apys.moonwell}
-          balance={positions.moonwellBalance}
-          walletUsdcBalance={walletUsdcBalance}
-        />
+        {apys.map((apy) => (
+          <ProtocolCard
+            key={apy.protocol}
+            apy={apy}
+            balance={positions.balances[apy.protocol] ?? 0n}
+            walletUsdcBalance={walletUsdcBalance}
+          />
+        ))}
       </div>
     </div>
   );

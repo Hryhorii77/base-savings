@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { recommend } from "./allocation";
+import { recommend, type ProtocolSnapshot } from "./allocation";
 
-const baseInput = {
-  morphoLiquidityRatio: 1,
-  moonwellLiquidityRatio: 1,
-  minMoveThresholdBps: 25,
-  lowLiquidityThreshold: 0.15,
-  moonwellDepositsPaused: false,
-};
+const baseOptions = { minMoveThresholdBps: 25, lowLiquidityThreshold: 0.15 };
+
+function snap(
+  protocol: ProtocolSnapshot["protocol"],
+  apyBps: number,
+  overrides: Partial<ProtocolSnapshot> = {}
+): ProtocolSnapshot {
+  return { protocol, apyBps, liquidityRatio: 1, depositsEnabled: true, ...overrides };
+}
 
 describe("recommend", () => {
   it("does not recommend a move when APYs are equal", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 400,
-      currentAllocation: "none",
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 400)],
+      heldProtocols: [],
     });
     expect(result.shouldMove).toBe(false);
     expect(result.apyDeltaBps).toBe(0);
@@ -23,10 +24,9 @@ describe("recommend", () => {
 
   it("recommends a move when the spread exactly equals the threshold", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 425,
-      moonwellApyBps: 400,
-      currentAllocation: "moonwell",
+      ...baseOptions,
+      protocols: [snap("morpho", 425), snap("moonwell", 400)],
+      heldProtocols: ["moonwell"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(true);
@@ -35,10 +35,9 @@ describe("recommend", () => {
 
   it("does not recommend a move when the spread is just under the threshold", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 424,
-      moonwellApyBps: 400,
-      currentAllocation: "moonwell",
+      ...baseOptions,
+      protocols: [snap("morpho", 424), snap("moonwell", 400)],
+      heldProtocols: ["moonwell"],
     });
     expect(result.shouldMove).toBe(false);
     expect(result.apyDeltaBps).toBe(0);
@@ -46,59 +45,52 @@ describe("recommend", () => {
 
   it("does not recommend a move when already in the best protocol", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 500,
-      moonwellApyBps: 300,
-      currentAllocation: "morpho",
+      ...baseOptions,
+      protocols: [snap("morpho", 500), snap("moonwell", 300)],
+      heldProtocols: ["morpho"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(false);
   });
 
-  it("recommends a move from a 'none' starting allocation once above threshold", () => {
+  it("recommends a move from holding nothing once above threshold", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 300,
-      moonwellApyBps: 500,
-      currentAllocation: "none",
+      ...baseOptions,
+      protocols: [snap("morpho", 300), snap("moonwell", 500)],
+      heldProtocols: [],
     });
     expect(result.recommended).toBe("moonwell");
     expect(result.shouldMove).toBe(true);
     expect(result.apyDeltaBps).toBe(200);
   });
 
-  it("recommends a move from a 'split' starting allocation once above threshold", () => {
+  it("recommends a move when holding a split position across protocols", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 600,
-      moonwellApyBps: 300,
-      currentAllocation: "split",
+      ...baseOptions,
+      protocols: [snap("morpho", 600), snap("moonwell", 300)],
+      heldProtocols: ["morpho", "moonwell"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(true);
     expect(result.apyDeltaBps).toBe(300);
   });
 
-  it("flags a low-liquidity warning when the higher-APY protocol is thin on liquidity", () => {
+  it("flags a low-liquidity warning when the recommended protocol is thin on liquidity", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 13000,
-      moonwellLiquidityRatio: 0.02,
-      currentAllocation: "morpho",
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 13000, { liquidityRatio: 0.02 })],
+      heldProtocols: ["morpho"],
     });
     expect(result.recommended).toBe("moonwell");
     expect(result.lowLiquidityWarning).toBe(true);
     expect(result.reason).toMatch(/thin/i);
   });
 
-  it("does not flag a low-liquidity warning when the loser (not the recommended protocol) is thin", () => {
+  it("does not flag a low-liquidity warning when a non-recommended protocol is thin", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 300,
-      moonwellLiquidityRatio: 0.01,
-      currentAllocation: "moonwell",
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 300, { liquidityRatio: 0.01 })],
+      heldProtocols: ["moonwell"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.lowLiquidityWarning).toBe(false);
@@ -107,11 +99,9 @@ describe("recommend", () => {
 
   it("includes the low-liquidity caveat even when already in the best (thin) protocol", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 13000,
-      moonwellLiquidityRatio: 0.02,
-      currentAllocation: "moonwell",
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 13000, { liquidityRatio: 0.02 })],
+      heldProtocols: ["moonwell"],
     });
     expect(result.shouldMove).toBe(false);
     expect(result.lowLiquidityWarning).toBe(true);
@@ -120,22 +110,18 @@ describe("recommend", () => {
 
   it("does not warn when liquidity is exactly at the threshold", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 500,
-      moonwellLiquidityRatio: 0.15,
-      currentAllocation: "morpho",
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 500, { liquidityRatio: 0.15 })],
+      heldProtocols: ["morpho"],
     });
     expect(result.lowLiquidityWarning).toBe(false);
   });
 
-  it("urges withdrawal to Morpho when already holding Moonwell during a paused incident", () => {
+  it("urges withdrawal when already holding a protocol with deposits disabled", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 13000,
-      currentAllocation: "moonwell",
-      moonwellDepositsPaused: true,
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 13000, { depositsEnabled: false })],
+      heldProtocols: ["moonwell"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(true);
@@ -143,26 +129,22 @@ describe("recommend", () => {
     expect(result.reason).toMatch(/security incident/i);
   });
 
-  it("urges withdrawal even from a split position during a paused incident", () => {
+  it("urges withdrawal from a disabled protocol even when held as part of a split position", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 300,
-      currentAllocation: "split",
-      moonwellDepositsPaused: true,
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 300, { depositsEnabled: false })],
+      heldProtocols: ["morpho", "moonwell"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(true);
     expect(result.incidentWarning).toBe(true);
   });
 
-  it("recommends Morpho instead of a higher-APY paused Moonwell for a new depositor", () => {
+  it("recommends the best enabled protocol instead of a higher-APY disabled one for a new depositor", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 13000,
-      currentAllocation: "none",
-      moonwellDepositsPaused: true,
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 13000, { depositsEnabled: false })],
+      heldProtocols: [],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(true);
@@ -170,29 +152,45 @@ describe("recommend", () => {
     expect(result.reason).toMatch(/security incident/i);
   });
 
-  it("does not repeat the incident reason once already in Morpho during a paused incident", () => {
+  it("does not repeat the incident reason once already in the best enabled protocol", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 400,
-      moonwellApyBps: 13000,
-      currentAllocation: "morpho",
-      moonwellDepositsPaused: true,
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 13000, { depositsEnabled: false })],
+      heldProtocols: ["morpho"],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.shouldMove).toBe(false);
     expect(result.incidentWarning).toBe(true);
   });
 
-  it("ignores the pause entirely when Morpho already wins on APY", () => {
+  it("ignores a disabled protocol entirely when an enabled one already wins on APY", () => {
     const result = recommend({
-      ...baseInput,
-      morphoApyBps: 500,
-      moonwellApyBps: 300,
-      currentAllocation: "none",
-      moonwellDepositsPaused: true,
+      ...baseOptions,
+      protocols: [snap("morpho", 500), snap("moonwell", 300, { depositsEnabled: false })],
+      heldProtocols: [],
     });
     expect(result.recommended).toBe("morpho");
     expect(result.incidentWarning).toBe(false);
     expect(result.reason).not.toMatch(/security incident/i);
+  });
+
+  it("picks the single highest-APY protocol across more than two options", () => {
+    const result = recommend({
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 300), snap("aave", 350), snap("compound", 650)],
+      heldProtocols: ["morpho"],
+    });
+    expect(result.recommended).toBe("compound");
+    expect(result.apyDeltaBps).toBe(250); // 650 - 400 (currently held)
+  });
+
+  it("does not treat a 3-way split as 'already there' even if it includes the best protocol", () => {
+    const result = recommend({
+      ...baseOptions,
+      protocols: [snap("morpho", 400), snap("moonwell", 300), snap("aave", 350), snap("compound", 650)],
+      heldProtocols: ["morpho", "moonwell", "compound"],
+    });
+    expect(result.recommended).toBe("compound");
+    expect(result.shouldMove).toBe(true);
   });
 });
