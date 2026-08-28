@@ -45,3 +45,14 @@ export const MIN_MOVE_THRESHOLD_BPS = 25;
 // sat at ~100% utilization (cash ≈ $0 against ~$13M supplied) while advertising
 // a very high headline APY — exactly the case this guards against.
 export const LOW_LIQUIDITY_THRESHOLD = 0.15;
+
+// Moonwell suffered an $8.7M oracle-manipulation exploit on Base on 2026-08-27
+// (illiquid MAMO collateral price was manipulated to over-borrow real assets,
+// including USDC — Moonwell responded by setting borrow caps to 1 wei across
+// all Base Core Markets). This directly explains the near-zero liquidity we'd
+// already been flagging on Moonwell's USDC market. New deposits are paused
+// here until Moonwell's post-incident review is public and the market looks
+// healthy again — flip back to false once that's confirmed.
+// Sources: theblock.co/news/defi/2026-08-27-moonwell-investigates-base-lending-market-issue-412913,
+// techtimes.com/articles/325839 ("third failure in 11 months")
+export const MOONWELL_DEPOSITS_PAUSED = true;

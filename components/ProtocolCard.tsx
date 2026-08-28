@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ProtocolApy } from "@/lib/protocols/types";
 import { moonwellAdapter } from "@/lib/protocols/moonwell";
 import { morphoAdapter } from "@/lib/protocols/morpho";
-import { LOW_LIQUIDITY_THRESHOLD } from "@/lib/config";
+import { LOW_LIQUIDITY_THRESHOLD, MOONWELL_DEPOSITS_PAUSED } from "@/lib/config";
 import { formatBps, formatUsdc } from "@/lib/format";
 import { DepositWithdrawModal } from "./DepositWithdrawModal";
 
@@ -21,7 +21,8 @@ export function ProtocolCard({
   if (!apy) return null;
 
   const adapter = apy.protocol === "morpho" ? morphoAdapter : moonwellAdapter;
-  const isLowLiquidity = apy.liquidityRatio < LOW_LIQUIDITY_THRESHOLD;
+  const isIncident = apy.protocol === "moonwell" && MOONWELL_DEPOSITS_PAUSED;
+  const isLowLiquidity = !isIncident && apy.liquidityRatio < LOW_LIQUIDITY_THRESHOLD;
 
   return (
     <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
@@ -31,6 +32,11 @@ export function ProtocolCard({
           {formatBps(apy.apyBps)} APY
         </span>
       </div>
+      {isIncident && (
+        <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
+          ⚠ Active security incident — new deposits are paused. Withdrawals still work.
+        </p>
+      )}
       {isLowLiquidity && (
         <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
           ⚠ Low liquidity — only {(apy.liquidityRatio * 100).toFixed(0)}% of supply is
@@ -45,8 +51,9 @@ export function ProtocolCard({
       <div className="mt-4 flex gap-2">
         <button
           type="button"
+          disabled={isIncident}
           onClick={() => setModalMode("deposit")}
-          className="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white dark:bg-zinc-50 dark:text-zinc-900"
+          className="flex-1 rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900"
         >
           Deposit
         </button>

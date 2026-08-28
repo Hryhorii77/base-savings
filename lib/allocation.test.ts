@@ -6,6 +6,7 @@ const baseInput = {
   moonwellLiquidityRatio: 1,
   minMoveThresholdBps: 25,
   lowLiquidityThreshold: 0.15,
+  moonwellDepositsPaused: false,
 };
 
 describe("recommend", () => {
@@ -126,5 +127,72 @@ describe("recommend", () => {
       currentAllocation: "morpho",
     });
     expect(result.lowLiquidityWarning).toBe(false);
+  });
+
+  it("urges withdrawal to Morpho when already holding Moonwell during a paused incident", () => {
+    const result = recommend({
+      ...baseInput,
+      morphoApyBps: 400,
+      moonwellApyBps: 13000,
+      currentAllocation: "moonwell",
+      moonwellDepositsPaused: true,
+    });
+    expect(result.recommended).toBe("morpho");
+    expect(result.shouldMove).toBe(true);
+    expect(result.incidentWarning).toBe(true);
+    expect(result.reason).toMatch(/security incident/i);
+  });
+
+  it("urges withdrawal even from a split position during a paused incident", () => {
+    const result = recommend({
+      ...baseInput,
+      morphoApyBps: 400,
+      moonwellApyBps: 300,
+      currentAllocation: "split",
+      moonwellDepositsPaused: true,
+    });
+    expect(result.recommended).toBe("morpho");
+    expect(result.shouldMove).toBe(true);
+    expect(result.incidentWarning).toBe(true);
+  });
+
+  it("recommends Morpho instead of a higher-APY paused Moonwell for a new depositor", () => {
+    const result = recommend({
+      ...baseInput,
+      morphoApyBps: 400,
+      moonwellApyBps: 13000,
+      currentAllocation: "none",
+      moonwellDepositsPaused: true,
+    });
+    expect(result.recommended).toBe("morpho");
+    expect(result.shouldMove).toBe(true);
+    expect(result.incidentWarning).toBe(true);
+    expect(result.reason).toMatch(/security incident/i);
+  });
+
+  it("does not repeat the incident reason once already in Morpho during a paused incident", () => {
+    const result = recommend({
+      ...baseInput,
+      morphoApyBps: 400,
+      moonwellApyBps: 13000,
+      currentAllocation: "morpho",
+      moonwellDepositsPaused: true,
+    });
+    expect(result.recommended).toBe("morpho");
+    expect(result.shouldMove).toBe(false);
+    expect(result.incidentWarning).toBe(true);
+  });
+
+  it("ignores the pause entirely when Morpho already wins on APY", () => {
+    const result = recommend({
+      ...baseInput,
+      morphoApyBps: 500,
+      moonwellApyBps: 300,
+      currentAllocation: "none",
+      moonwellDepositsPaused: true,
+    });
+    expect(result.recommended).toBe("morpho");
+    expect(result.incidentWarning).toBe(false);
+    expect(result.reason).not.toMatch(/security incident/i);
   });
 });

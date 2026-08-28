@@ -8,6 +8,7 @@ export interface AllocationInput {
   currentAllocation: Protocol | "none" | "split";
   minMoveThresholdBps: number;
   lowLiquidityThreshold: number;
+  moonwellDepositsPaused: boolean;
 }
 
 export interface AllocationRecommendation {
@@ -15,6 +16,7 @@ export interface AllocationRecommendation {
   apyDeltaBps: number;
   shouldMove: boolean;
   lowLiquidityWarning: boolean;
+  incidentWarning: boolean;
   reason: string;
 }
 
@@ -27,9 +29,44 @@ export function recommend(input: AllocationInput): AllocationRecommendation {
     currentAllocation,
     minMoveThresholdBps,
     lowLiquidityThreshold,
+    moonwellDepositsPaused,
   } = input;
 
-  const best: Protocol = morphoApyBps >= moonwellApyBps ? "morpho" : "moonwell";
+  const hasMoonwellExposure = currentAllocation === "moonwell" || currentAllocation === "split";
+
+  // Already holding funds in Moonwell during a paused/incident state — urge
+  // withdrawal regardless of the APY math; this overrides the normal comparison.
+  if (moonwellDepositsPaused && hasMoonwellExposure) {
+    return {
+      recommended: "morpho",
+      apyDeltaBps: 0,
+      shouldMove: true,
+      lowLiquidityWarning: false,
+      incidentWarning: true,
+      reason:
+        "Moonwell has an active security incident and deposits are paused — consider withdrawing to Morpho until it's resolved.",
+    };
+  }
+
+  const rawBest: Protocol = morphoApyBps >= moonwellApyBps ? "morpho" : "moonwell";
+
+  // Moonwell would win on APY but isn't actionable for new deposits right now —
+  // fall back to Morpho rather than recommending something the user can't do.
+  if (rawBest === "moonwell" && moonwellDepositsPaused) {
+    const alreadyInMorpho = currentAllocation === "morpho";
+    return {
+      recommended: "morpho",
+      apyDeltaBps: 0,
+      shouldMove: !alreadyInMorpho,
+      lowLiquidityWarning: false,
+      incidentWarning: true,
+      reason: alreadyInMorpho
+        ? "Already in Morpho. Moonwell is offering more APY right now, but it has an active security incident and deposits are paused."
+        : "Moonwell is offering more APY right now, but it has an active security incident and deposits are paused — recommending Morpho instead.",
+    };
+  }
+
+  const best = rawBest;
   const bestLiquidityRatio = best === "morpho" ? morphoLiquidityRatio : moonwellLiquidityRatio;
   const lowLiquidityWarning = bestLiquidityRatio < lowLiquidityThreshold;
 
@@ -47,6 +84,7 @@ export function recommend(input: AllocationInput): AllocationRecommendation {
     apyDeltaBps: shouldMove ? spreadBps : 0,
     shouldMove,
     lowLiquidityWarning,
+    incidentWarning: false,
     reason: alreadyThere
       ? `Already in the higher-yield market (${best}).${liquidityCaveat}`
       : shouldMove
