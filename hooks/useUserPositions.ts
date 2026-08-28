@@ -23,7 +23,7 @@ export function useUserPositions(userAddress: Address | undefined) {
 
       return { balances, heldProtocols };
     },
-    refetchInterval: 30_000,
+    refetchInterval: 90_000,
     retry: 1,
     retryDelay: 2_000,
   });

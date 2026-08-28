@@ -41,7 +41,7 @@ export function BalanceDashboard() {
     abi: balanceOfAbi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 30_000 },
+    query: { enabled: !!address, refetchInterval: 90_000 },
   });
 
   if (apysError || positionsError) {
