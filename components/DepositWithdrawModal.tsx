@@ -2,13 +2,26 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useAccount, useConfig, useWriteContract } from "wagmi";
+import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { formatUsdc, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter } from "@/lib/protocols/types";
 
 type Mode = "deposit" | "withdraw";
+
+function friendlyError(e: unknown): string {
+  if (!(e instanceof Error)) return "Transaction failed.";
+  const name = (e as { name?: string }).name;
+  if (name === "UserRejectedRequestError" || /user rejected/i.test(e.message)) {
+    return "Cancelled — nothing was signed.";
+  }
+  if (name === "ChainMismatchError" || /does not match the target chain/i.test(e.message)) {
+    return "Wrong network — please switch your wallet to Base and try again.";
+  }
+  // viem errors often dump multi-line contract-call details; keep just the summary.
+  return e.message.split("\n")[0];
+}
 
 export function DepositWithdrawModal({
   adapter,
@@ -23,10 +36,11 @@ export function DepositWithdrawModal({
   protocolBalance: bigint;
   onClose: () => void;
 }) {
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
   const config = useConfig();
   const queryClient = useQueryClient();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   const [amountInput, setAmountInput] = useState("");
   const [status, setStatus] = useState<"idle" | "pending" | "error">("idle");
@@ -41,17 +55,24 @@ export function DepositWithdrawModal({
     setStatus("pending");
     setError(null);
     try {
+      // Proactively prompt a network switch in the wallet up front, rather
+      // than letting a chain-mismatch surface as a raw error from the write
+      // call. NetworkGuard normally prevents reaching this modal on the
+      // wrong chain at all, but the wallet can switch networks in the
+      // background after that check ran (observed live) — this catches it
+      // right when the user acts instead of after a failed signature.
+      if (chainId !== BASE_CHAIN_ID) {
+        await switchChainAsync({ chainId: BASE_CHAIN_ID });
+      }
+
       const txs =
         mode === "deposit"
           ? await adapter.buildDepositTx(address, amount)
           : await adapter.buildWithdrawTx(address, amount);
 
       for (const tx of txs) {
-        // Explicit chainId — without it, wagmi submits to whatever chain the
-        // wallet is currently connected to rather than enforcing Base. The
-        // NetworkGuard above the dashboard already blocks reaching this modal
-        // on the wrong chain; this is a second layer in case that ever races
-        // or gets bypassed (e.g. the wallet switches networks mid-session).
+        // Explicit chainId as a second layer, in case the wallet's own
+        // switchChain resolves without actually landing on Base.
         const hash = await writeContractAsync({
           address: tx.address,
           abi: tx.abi,
@@ -66,7 +87,7 @@ export function DepositWithdrawModal({
       onClose();
     } catch (e) {
       setStatus("error");
-      setError(e instanceof Error ? e.message : "Transaction failed");
+      setError(friendlyError(e));
       return;
     }
     setStatus("idle");
