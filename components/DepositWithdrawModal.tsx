@@ -71,14 +71,17 @@ export function DepositWithdrawModal({
           : await adapter.buildWithdrawTx(address, amount);
 
       for (const tx of txs) {
-        // Explicit chainId as a second layer, in case the wallet's own
-        // switchChain resolves without actually landing on Base.
+        // No explicit chainId here — the upfront switchChainAsync above is
+        // the enforcement point. Passing chainId directly into writeContract
+        // as well caused a real failure ("Invalid parameters were provided
+        // to the RPC method") even when the wallet was already on Base,
+        // likely from wagmi bundling a redundant chain-switch handshake into
+        // the write call itself that the wallet didn't handle gracefully.
         const hash = await writeContractAsync({
           address: tx.address,
           abi: tx.abi,
           functionName: tx.functionName,
           args: tx.args,
-          chainId: BASE_CHAIN_ID,
         });
         await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
       }
