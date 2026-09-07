@@ -28,7 +28,17 @@ export function ProtocolCard({
   return (
     <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{apy.label}</h3>
+        <div>
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{apy.label}</h3>
+          <a
+            href={`https://basescan.org/address/${apy.contractAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-zinc-400 hover:text-blue-600 hover:underline dark:hover:text-blue-400"
+          >
+            View contract ↗
+          </a>
+        </div>
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
           {formatBps(apy.apyBps)} APY
         </span>

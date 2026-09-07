@@ -148,6 +148,7 @@ export const moonwellAdapter: ProtocolAdapter = {
       apyBps: Math.round(apyFraction * 10_000),
       label: "Moonwell USDC",
       liquidityRatio: Math.min(1, Math.max(0, liquidityRatio)),
+      contractAddress: MOONWELL_MUSDC_ADDRESS,
     };
   },
 

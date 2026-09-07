@@ -7,6 +7,7 @@ import { USDC_ADDRESS } from "@/lib/config";
 import { formatUsdc } from "@/lib/format";
 import { AllocationBanner } from "./AllocationBanner";
 import { ProtocolCard } from "./ProtocolCard";
+import { TransactionHistory } from "./TransactionHistory";
 
 // wagmi 3.x's useBalance no longer supports an ERC-20 `token` param (native
 // balances only) — read USDC's balanceOf directly instead.
@@ -70,8 +71,42 @@ export function BalanceDashboard() {
 
   const walletUsdcBalance = walletUsdc ?? 0n;
 
+  // Simple point-in-time projection (current balance × current APY) — not a
+  // compounding forecast, just enough to answer "is this doing anything?"
+  // without the user doing bps math in their head.
+  const totalSaved = apys.reduce(
+    (sum, apy) => sum + (positions.balances[apy.protocol] ?? 0n),
+    0n
+  );
+  const yearlyEarnings = apys.reduce((sum, apy) => {
+    const balance = positions.balances[apy.protocol] ?? 0n;
+    return sum + (balance * BigInt(apy.apyBps)) / 10_000n;
+  }, 0n);
+  const monthlyEarnings = yearlyEarnings / 12n;
+
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500">Total saved</p>
+          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            {formatUsdc(totalSaved)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500">Est. monthly earnings</p>
+          <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+            +{formatUsdc(monthlyEarnings)}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500">Est. yearly earnings</p>
+          <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+            +{formatUsdc(yearlyEarnings)}
+          </p>
+        </div>
+      </div>
+
       <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <p className="text-xs text-zinc-500">Wallet USDC balance</p>
         <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
@@ -91,6 +126,8 @@ export function BalanceDashboard() {
           />
         ))}
       </div>
+
+      {address && <TransactionHistory address={address} />}
     </div>
   );
 }

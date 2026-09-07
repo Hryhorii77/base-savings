@@ -152,6 +152,7 @@ export const aaveAdapter: ProtocolAdapter = {
       apyBps: Math.round(apyFraction * 10_000),
       label: "Aave USDC",
       liquidityRatio: Math.min(1, Math.max(0, liquidityRatio)),
+      contractAddress: AAVE_AUSDC_ADDRESS,
     };
   },
 

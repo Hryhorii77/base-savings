@@ -7,6 +7,7 @@ import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { formatUsdc, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter } from "@/lib/protocols/types";
+import { recordTx } from "@/lib/txHistory";
 
 type Mode = "deposit" | "withdraw";
 
@@ -78,6 +79,11 @@ export function DepositWithdrawModal({
           ? await adapter.buildDepositTx(address, amount)
           : await adapter.buildWithdrawTx(address, amount);
 
+      // The last tx in the list is always the actual deposit/withdraw call
+      // (deposits are [approve, deposit]; withdrawals are just [withdraw]) —
+      // that's the one worth showing in the user's activity feed, not the
+      // approve step.
+      let actionHash: `0x${string}` | undefined;
       for (const tx of txs) {
         // No explicit chainId here — the upfront switchChainAsync above is
         // the enforcement point. Passing chainId directly into writeContract
@@ -92,6 +98,17 @@ export function DepositWithdrawModal({
           args: tx.args,
         });
         await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
+        actionHash = hash;
+      }
+
+      if (actionHash) {
+        recordTx(address, {
+          hash: actionHash,
+          protocol: adapter.id,
+          mode,
+          amount: amount.toString(),
+          timestamp: Date.now(),
+        });
       }
 
       await queryClient.invalidateQueries({ queryKey: ["user-positions"] });

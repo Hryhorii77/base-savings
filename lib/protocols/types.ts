@@ -13,6 +13,12 @@ export interface ProtocolApy {
    * market at ~100% utilization) — this flags that risk independently of APY.
    */
   liquidityRatio: number;
+  /**
+   * On-chain address of the exact market/vault this APY was read from — lets
+   * the UI link straight to Basescan so a user can verify the number (or exit
+   * directly through the protocol) without trusting this frontend.
+   */
+  contractAddress: Address;
 }
 
 export interface TxRequest {

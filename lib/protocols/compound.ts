@@ -151,6 +151,7 @@ export const compoundAdapter: ProtocolAdapter = {
       apyBps: Math.round(apyFraction * 10_000),
       label: "Compound USDC",
       liquidityRatio: Math.min(1, Math.max(0, liquidityRatio)),
+      contractAddress: COMPOUND_COMET_ADDRESS,
     };
   },
 

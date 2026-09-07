@@ -174,6 +174,7 @@ export const morphoAdapter: ProtocolAdapter = {
       apyBps: vault.netApyBps,
       label: vault.name,
       liquidityRatio: vault.liquidityRatio,
+      contractAddress: vault.address,
     };
   },
 
