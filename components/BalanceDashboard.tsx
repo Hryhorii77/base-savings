@@ -114,7 +114,11 @@ export function BalanceDashboard() {
         </p>
       </div>
 
-      <AllocationBanner apys={apys} heldProtocols={positions.heldProtocols} />
+      <AllocationBanner
+        apys={apys}
+        heldProtocols={positions.heldProtocols}
+        balances={positions.balances}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {apys.map((apy) => (
