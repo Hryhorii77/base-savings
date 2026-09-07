@@ -2,6 +2,7 @@
 
 import { useAccount } from "wagmi";
 import { BalanceDashboard } from "@/components/BalanceDashboard";
+import { Logo } from "@/components/Logo";
 import { NetworkGuard } from "@/components/NetworkGuard";
 import { PublicRateCard } from "@/components/PublicRateCard";
 import { RecommendedNowBanner } from "@/components/RecommendedNowBanner";
@@ -35,11 +36,14 @@ export default function Home() {
   const { isConnected } = useAccount();
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-16 dark:bg-black">
-      <div className="flex w-full max-w-2xl items-center justify-between">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Base Savings
-        </h1>
+    <div className="flex flex-1 flex-col items-center bg-gradient-to-b from-blue-50/70 via-zinc-50 to-zinc-50 px-4 py-10 sm:py-16 dark:from-zinc-950 dark:via-black dark:to-black">
+      <div className="flex w-full max-w-2xl items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Logo size={24} />
+          <h1 className="truncate text-lg font-semibold text-zinc-900 sm:text-xl dark:text-zinc-50">
+            Base Savings
+          </h1>
+        </div>
         <WalletConnectButton />
       </div>
 
@@ -48,7 +52,7 @@ export default function Home() {
         paying more — every transaction is signed by you.
       </p>
 
-      <div className="mt-10 flex w-full max-w-2xl flex-col gap-6">
+      <div className="mt-8 flex w-full max-w-2xl flex-col gap-6 sm:mt-10">
         {isConnected ? (
           <NetworkGuard>
             <BalanceDashboard />

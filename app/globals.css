@@ -10,6 +10,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Base's own brand blue — keep in sync with BASE_BLUE in components/Logo.tsx */
+  --color-brand: #0052ff;
 }
 
 @media (prefers-color-scheme: dark) {

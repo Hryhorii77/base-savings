@@ -163,7 +163,7 @@ export function DepositWithdrawModal({
             type="button"
             disabled={!isValid || status === "pending"}
             onClick={handleSubmit}
-            className="flex-1 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="flex-1 rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
           >
             {status === "pending" ? "Confirming…" : "Confirm"}
           </button>

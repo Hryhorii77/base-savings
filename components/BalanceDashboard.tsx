@@ -87,19 +87,19 @@ export function BalanceDashboard() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
           <p className="text-xs text-zinc-500">Total saved</p>
           <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             {formatUsdc(totalSaved)}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
           <p className="text-xs text-zinc-500">Est. monthly earnings</p>
           <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             +{formatUsdc(monthlyEarnings)}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
           <p className="text-xs text-zinc-500">Est. yearly earnings</p>
           <p className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             +{formatUsdc(yearlyEarnings)}
@@ -107,7 +107,7 @@ export function BalanceDashboard() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
         <p className="text-xs text-zinc-500">Wallet USDC balance</p>
         <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
           {formatUsdc(walletUsdcBalance)}

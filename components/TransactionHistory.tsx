@@ -18,7 +18,7 @@ export function TransactionHistory({ address }: { address: string }) {
   const history = useTxHistory(address);
 
   return (
-    <div className="rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800">
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">Recent activity</h3>
         <a

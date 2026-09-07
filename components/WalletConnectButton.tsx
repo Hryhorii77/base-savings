@@ -42,7 +42,7 @@ export function WalletConnectButton() {
         type="button"
         disabled={isPending || uniqueConnectors.length === 0}
         onClick={() => setMenuOpen((open) => !open)}
-        className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+        className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand/90 disabled:opacity-50"
       >
         {isPending ? "Connecting…" : "Connect Wallet"}
       </button>
