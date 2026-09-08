@@ -59,7 +59,7 @@ export function AllocationBanner({
         <button
           type="button"
           onClick={() => setRebalanceOpen(true)}
-          className="shrink-0 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-semibold text-zinc-900 hover:bg-white dark:bg-black/20 dark:text-zinc-50 dark:hover:bg-black/30"
+          className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand/90"
         >
           Rebalance now
         </button>
