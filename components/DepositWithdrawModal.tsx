@@ -7,6 +7,7 @@ import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
 import { formatBps, formatUsdc, isValidTxHash, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter, ProtocolApy } from "@/lib/protocols/types";
+import { refreshPositionsAfterTx } from "@/lib/refreshPositions";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError, waitForSuccessfulReceipt } from "@/lib/walletErrors";
 
@@ -112,7 +113,7 @@ export function DepositWithdrawModal({
         });
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["user-positions"] });
+      await refreshPositionsAfterTx(queryClient);
       setReceiptHash(actionHash ?? null);
       setReceiptAmount(amount);
       setStatus("success");

@@ -8,6 +8,7 @@ import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
 import { formatBps, formatUsdc, isValidTxHash } from "@/lib/format";
 import type { ProtocolAdapter, TxRequest } from "@/lib/protocols/types";
+import { refreshPositionsAfterTx } from "@/lib/refreshPositions";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError, waitForSuccessfulReceipt } from "@/lib/walletErrors";
 
@@ -112,7 +113,7 @@ export function RebalanceModal({
         timestamp: Date.now(),
       });
 
-      await queryClient.invalidateQueries({ queryKey: ["user-positions"] });
+      await refreshPositionsAfterTx(queryClient);
       setReceipt({ withdrawHash, depositHash });
       setStatus("success");
       return;
