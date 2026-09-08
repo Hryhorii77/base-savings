@@ -9,7 +9,18 @@ export const BASE_CHAIN_ID = 8453;
 // PublicNode's endpoint has materially higher rate limits for free public use.
 // Used explicitly everywhere a client is created (wagmi transports and both
 // protocol adapters) so nothing silently falls back to the rate-limited default.
-export const BASE_RPC_URL = "https://base-rpc.publicnode.com";
+//
+// Even PublicNode's free/anonymous tier has a ceiling, though: observed live
+// on 2026-09-08 during real deposit testing — this app's own background APY
+// polling plus a transaction's own receipt-polling loop, all hitting this
+// single anonymous endpoint, was enough to exceed it. PublicNode's error for
+// that is misleadingly worded ("Archive requests require a personal token"
+// on a plain eth_getTransactionReceipt call, which isn't an archive read at
+// all) but a free personal token from https://www.allnodes.com/publicnode
+// raises the ceiling well past that. NEXT_PUBLIC_BASE_RPC_URL lets that token
+// be dropped in as config instead of a code change; unset, this falls back
+// to the anonymous endpoint exactly as before.
+export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://base-rpc.publicnode.com";
 
 // Originally verified against @moonwell-fi/moonwell-sdk's shipped environment
 // config, and cross-checked as the `asset.address` returned by Morpho's live

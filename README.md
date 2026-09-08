@@ -55,6 +55,15 @@ cp .env.local.example .env.local
 # fill in NEXT_PUBLIC_PAYMASTER_URL
 ```
 
+### Optional: a higher-rate-limit Base RPC endpoint
+
+By default this app reads Base via PublicNode's free, anonymous endpoint, which is fine for light use but has a request-volume ceiling. Under real concurrent load — background APY polling plus a transaction's own receipt-polling — that ceiling can be hit, surfacing as a misleadingly-worded `"Archive requests require a personal token"` error even on a plain, non-archival read. A free personal token from [allnodes.com/publicnode](https://www.allnodes.com/publicnode) raises that ceiling:
+
+```bash
+cp .env.local.example .env.local
+# fill in NEXT_PUBLIC_BASE_RPC_URL with the URL it gives you
+```
+
 ## Testing
 
 ```bash
