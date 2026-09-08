@@ -125,8 +125,14 @@ export function RebalanceModal({
 
   if (status === "success" && receipt) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h2 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             Rebalance complete
           </h2>
@@ -170,8 +176,14 @@ export function RebalanceModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={status === "pending" ? undefined : onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Rebalance</h2>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
           Move <span className="font-semibold">{formatUsdc(amount)}</span> from{" "}

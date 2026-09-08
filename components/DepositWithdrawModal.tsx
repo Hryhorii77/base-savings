@@ -126,8 +126,14 @@ export function DepositWithdrawModal({
 
   if (status === "success") {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h2 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
             {mode === "deposit" ? "Deposit complete" : "Withdrawal complete"}
           </h2>
@@ -167,8 +173,14 @@ export function DepositWithdrawModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-lg font-semibold capitalize text-zinc-900 dark:text-zinc-50">
           {mode} — {apy.label}
         </h2>
