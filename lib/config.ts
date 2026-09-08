@@ -3,24 +3,15 @@ import type { ProtocolId } from "./protocols/types";
 
 export const BASE_CHAIN_ID = 8453;
 
-// viem's built-in default RPC for Base is the official https://mainnet.base.org,
-// which is rate-limited and not intended for production traffic — observed live
-// causing a real user's Moonwell market-data call to hang past a 10s timeout.
-// PublicNode's endpoint has materially higher rate limits for free public use.
-// Used explicitly everywhere a client is created (wagmi transports and both
-// protocol adapters) so nothing silently falls back to the rate-limited default.
-//
-// Even PublicNode's free/anonymous tier has a ceiling, though: observed live
-// on 2026-09-08 during real deposit testing — this app's own background APY
-// polling plus a transaction's own receipt-polling loop, all hitting this
-// single anonymous endpoint, was enough to exceed it. PublicNode's error for
-// that is misleadingly worded ("Archive requests require a personal token"
-// on a plain eth_getTransactionReceipt call, which isn't an archive read at
-// all) but a free personal token from https://www.allnodes.com/publicnode
-// raises the ceiling well past that. NEXT_PUBLIC_BASE_RPC_URL lets that token
-// be dropped in as config instead of a code change; unset, this falls back
-// to the anonymous endpoint exactly as before.
-export const BASE_RPC_URL = process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://base-rpc.publicnode.com";
+// Client-side code (wagmi's transport in app/wagmi.ts, and each protocol
+// adapter's own client in lib/protocols/*.ts) always points here — a
+// same-origin route — rather than at the real upstream RPC URL directly.
+// app/api/rpc/route.ts forwards to the actual endpoint server-side, so
+// whatever's configured there (including a personal-token URL — see its
+// UPSTREAM_BASE_RPC_URL env var) never ships to the browser. Before this
+// proxy existed, that URL was NEXT_PUBLIC_-exposed directly; see git history
+// on this file for that version if reverting the proxy is ever useful.
+export const BASE_RPC_URL = "/api/rpc";
 
 // Originally verified against @moonwell-fi/moonwell-sdk's shipped environment
 // config, and cross-checked as the `asset.address` returned by Morpho's live

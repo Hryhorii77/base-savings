@@ -57,11 +57,11 @@ cp .env.local.example .env.local
 
 ### Optional: a higher-rate-limit Base RPC endpoint
 
-By default this app reads Base via PublicNode's free, anonymous endpoint, which is fine for light use but has a request-volume ceiling. Under real concurrent load — background APY polling plus a transaction's own receipt-polling — that ceiling can be hit, surfacing as a misleadingly-worded `"Archive requests require a personal token"` error even on a plain, non-archival read. A free personal token from [allnodes.com/publicnode](https://www.allnodes.com/publicnode) raises that ceiling:
+All client-side reads go through a same-origin proxy (`app/api/rpc/route.ts`) rather than hitting an RPC provider directly from the browser — so whatever's configured as the real upstream endpoint, including any access token in it, never ships to the client. By default that proxy forwards to PublicNode's free, anonymous endpoint, which is fine for light use but has a request-volume ceiling. Under real concurrent load — background APY polling plus a transaction's own receipt-polling — that ceiling can be hit, surfacing as a misleadingly-worded `"Archive requests require a personal token"` error even on a plain, non-archival read. A free personal token from [allnodes.com/publicnode](https://www.allnodes.com/publicnode) raises that ceiling:
 
 ```bash
 cp .env.local.example .env.local
-# fill in NEXT_PUBLIC_BASE_RPC_URL with the URL it gives you
+# fill in UPSTREAM_BASE_RPC_URL with the URL it gives you
 ```
 
 ## Testing
@@ -78,6 +78,7 @@ CI runs all three on every push and pull request.
 
 ```
 app/                  Next.js routes, wagmi config, providers
+app/api/rpc/          Same-origin RPC proxy — keeps the real upstream URL (and any token) server-only
 components/           Wallet connect, dashboard, deposit/withdraw modal, public rate cards
 hooks/                React Query hooks wrapping the protocol adapters, local tx history
 lib/allocation.ts     Pure recommendation logic (APY + liquidity → recommendation)
