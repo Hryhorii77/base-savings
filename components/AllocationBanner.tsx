@@ -71,6 +71,7 @@ export function AllocationBanner({
           targetAdapter={targetAdapter}
           sourceLabel={apys.find((a) => a.protocol === sourceAdapter.id)?.label ?? sourceAdapter.id}
           targetLabel={apys.find((a) => a.protocol === targetAdapter.id)?.label ?? targetAdapter.id}
+          targetApyBps={apys.find((a) => a.protocol === targetAdapter.id)?.apyBps ?? 0}
           amount={sourceAmount}
           onClose={() => setRebalanceOpen(false)}
         />

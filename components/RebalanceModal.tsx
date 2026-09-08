@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { getCapabilities, sendCalls, waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
-import { formatUsdc } from "@/lib/format";
+import { formatBps, formatUsdc } from "@/lib/format";
 import { toSendCalls } from "@/lib/rebalanceCalls";
 import type { ProtocolAdapter, TxRequest } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
@@ -16,6 +16,7 @@ export function RebalanceModal({
   targetAdapter,
   sourceLabel,
   targetLabel,
+  targetApyBps,
   amount,
   onClose,
 }: {
@@ -23,6 +24,7 @@ export function RebalanceModal({
   targetAdapter: ProtocolAdapter;
   sourceLabel: string;
   targetLabel: string;
+  targetApyBps: number;
   amount: bigint;
   onClose: () => void;
 }) {
@@ -32,8 +34,11 @@ export function RebalanceModal({
   const { writeContractAsync } = useWriteContract();
   const { switchChainAsync } = useSwitchChain();
 
-  const [status, setStatus] = useState<"idle" | "pending" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "pending" | "error" | "success">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{ withdrawHash: string; depositHash: string } | null>(
+    null
+  );
 
   // Sequential fallback for wallets without EIP-5792 batch support — signs
   // each call in order and returns the final tx hash (the last call in a
@@ -84,6 +89,9 @@ export function RebalanceModal({
         atomicSupported = false;
       }
 
+      let withdrawHash: `0x${string}`;
+      let depositHash: `0x${string}`;
+
       if (atomicSupported) {
         const { id } = await sendCalls(config, {
           account: address,
@@ -92,54 +100,88 @@ export function RebalanceModal({
         });
         const result = await waitForCallsStatus(config, { id, throwOnFailure: true });
 
-        const withdrawHash = result.receipts?.[0]?.transactionHash ?? (id as `0x${string}`);
-        const depositHash =
+        withdrawHash = result.receipts?.[0]?.transactionHash ?? (id as `0x${string}`);
+        depositHash =
           result.receipts?.[result.receipts.length - 1]?.transactionHash ?? (id as `0x${string}`);
-        recordTx(address, {
-          hash: withdrawHash,
-          protocol: sourceAdapter.id,
-          mode: "withdraw",
-          amount: amount.toString(),
-          timestamp: Date.now(),
-        });
-        recordTx(address, {
-          hash: depositHash,
-          protocol: targetAdapter.id,
-          mode: "deposit",
-          amount: amount.toString(),
-          timestamp: Date.now(),
-        });
       } else {
-        const withdrawHash = await signSequentially(withdrawTxs);
-        if (withdrawHash) {
-          recordTx(address, {
-            hash: withdrawHash,
-            protocol: sourceAdapter.id,
-            mode: "withdraw",
-            amount: amount.toString(),
-            timestamp: Date.now(),
-          });
+        const seqWithdrawHash = await signSequentially(withdrawTxs);
+        const seqDepositHash = await signSequentially(depositTxs);
+        // Every adapter's buildWithdrawTx/buildDepositTx returns at least one
+        // call, so signSequentially always resolves a hash here in practice —
+        // guard explicitly anyway rather than assuming it away.
+        if (!seqWithdrawHash || !seqDepositHash) {
+          throw new Error("Rebalance failed: no transaction hash was returned.");
         }
-        const depositHash = await signSequentially(depositTxs);
-        if (depositHash) {
-          recordTx(address, {
-            hash: depositHash,
-            protocol: targetAdapter.id,
-            mode: "deposit",
-            amount: amount.toString(),
-            timestamp: Date.now(),
-          });
-        }
+        withdrawHash = seqWithdrawHash;
+        depositHash = seqDepositHash;
       }
 
+      recordTx(address, {
+        hash: withdrawHash,
+        protocol: sourceAdapter.id,
+        mode: "withdraw",
+        amount: amount.toString(),
+        timestamp: Date.now(),
+      });
+      recordTx(address, {
+        hash: depositHash,
+        protocol: targetAdapter.id,
+        mode: "deposit",
+        amount: amount.toString(),
+        timestamp: Date.now(),
+      });
+
       await queryClient.invalidateQueries({ queryKey: ["user-positions"] });
-      onClose();
+      setReceipt({ withdrawHash, depositHash });
+      setStatus("success");
+      return;
     } catch (e) {
       setStatus("error");
       setError(friendlyError(e));
       return;
     }
-    setStatus("idle");
+  }
+
+  if (status === "success" && receipt) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+          <h2 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+            Rebalance complete
+          </h2>
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
+            Moved {formatUsdc(amount)} from <span className="font-medium">{sourceLabel}</span> to{" "}
+            <span className="font-medium">{targetLabel}</span>. You now earn{" "}
+            <span className="font-semibold">~{formatBps(targetApyBps)}</span> APY. Withdraw anytime.
+          </p>
+          <div className="mt-3 flex gap-4 text-xs">
+            <a
+              href={`https://basescan.org/tx/${receipt.withdrawHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Withdraw tx ↗
+            </a>
+            <a
+              href={`https://basescan.org/tx/${receipt.depositHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Deposit tx ↗
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-6 w-full rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-brand/90"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
-import { formatUsdc, parseUsdc } from "@/lib/format";
-import type { ProtocolAdapter } from "@/lib/protocols/types";
+import { formatBps, formatUsdc, parseUsdc } from "@/lib/format";
+import type { ProtocolAdapter, ProtocolApy } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError } from "@/lib/walletErrors";
 
@@ -14,12 +14,14 @@ type Mode = "deposit" | "withdraw";
 
 export function DepositWithdrawModal({
   adapter,
+  apy,
   mode,
   walletUsdcBalance,
   protocolBalance,
   onClose,
 }: {
   adapter: ProtocolAdapter;
+  apy: ProtocolApy;
   mode: Mode;
   walletUsdcBalance: bigint;
   protocolBalance: bigint;
@@ -32,8 +34,10 @@ export function DepositWithdrawModal({
   const { switchChainAsync } = useSwitchChain();
 
   const [amountInput, setAmountInput] = useState("");
-  const [status, setStatus] = useState<"idle" | "pending" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "pending" | "error" | "success">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [receiptHash, setReceiptHash] = useState<string | null>(null);
+  const [receiptAmount, setReceiptAmount] = useState<bigint | null>(null);
 
   const maxAmount = mode === "deposit" ? walletUsdcBalance : protocolBalance;
   const amount = parseUsdc(amountInput);
@@ -92,20 +96,64 @@ export function DepositWithdrawModal({
       }
 
       await queryClient.invalidateQueries({ queryKey: ["user-positions"] });
-      onClose();
+      setReceiptHash(actionHash ?? null);
+      setReceiptAmount(amount);
+      setStatus("success");
+      return;
     } catch (e) {
       setStatus("error");
       setError(friendlyError(e));
       return;
     }
-    setStatus("idle");
+  }
+
+  if (status === "success") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+          <h2 className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+            {mode === "deposit" ? "Deposit complete" : "Withdrawal complete"}
+          </h2>
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">
+            {mode === "deposit" ? (
+              <>
+                You now earn <span className="font-semibold">~{formatBps(apy.apyBps)}</span> APY
+                on <span className="font-medium">{apy.label}</span>. Withdraw anytime.
+              </>
+            ) : (
+              <>
+                Withdrew {receiptAmount !== null ? formatUsdc(receiptAmount) : ""} from{" "}
+                <span className="font-medium">{apy.label}</span> back to your wallet.
+              </>
+            )}
+          </p>
+          {receiptHash && (
+            <a
+              href={`https://basescan.org/tx/${receiptHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block text-xs text-blue-600 hover:underline dark:text-blue-400"
+            >
+              View transaction ↗
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-6 w-full rounded-lg bg-brand py-2 text-sm font-semibold text-white transition-colors hover:bg-brand/90"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
         <h2 className="text-lg font-semibold capitalize text-zinc-900 dark:text-zinc-50">
-          {mode} — {adapter.id}
+          {mode} — {apy.label}
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
           Available: {formatUsdc(maxAmount)} USDC

@@ -81,6 +81,7 @@ export function ProtocolCard({
       {modalMode && (
         <DepositWithdrawModal
           adapter={adapter}
+          apy={apy}
           mode={modalMode}
           walletUsdcBalance={walletUsdcBalance}
           protocolBalance={balance}
