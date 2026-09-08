@@ -3,10 +3,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
-import { getCapabilities, sendCalls, waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
+import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
+import { trySendCallsBatch } from "@/lib/eip5792Batch";
 import { formatBps, formatUsdc } from "@/lib/format";
-import { toSendCalls } from "@/lib/rebalanceCalls";
 import type { ProtocolAdapter, TxRequest } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError } from "@/lib/walletErrors";
@@ -70,39 +70,17 @@ export function RebalanceModal({
       const withdrawTxs = await sourceAdapter.buildWithdrawTx(address, amount);
       const depositTxs = await targetAdapter.buildDepositTx(address, amount);
 
-      // Only attempt the batched (EIP-5792) path if the connected wallet has
-      // already told us it supports atomic batches — most injected wallets
-      // don't implement `wallet_getCapabilities` at all and simply error out,
-      // which we treat the same as "unsupported" and fall back silently.
-      // Once we've committed to the batched path, any further error
-      // (including the user rejecting the single batched signature) is a
-      // real failure and surfaces normally — it must not silently retry as
-      // two separate sequential signatures behind the user's back.
-      let atomicSupported = false;
-      try {
-        // Passing chainId returns the capabilities record for that chain
-        // directly (not keyed by chain), per wagmi/viem's getCapabilities contract.
-        const caps = await getCapabilities(config, { account: address, chainId: BASE_CHAIN_ID });
-        const atomicStatus = caps?.atomic?.status;
-        atomicSupported = atomicStatus === "supported" || atomicStatus === "ready";
-      } catch {
-        atomicSupported = false;
-      }
-
       let withdrawHash: `0x${string}`;
       let depositHash: `0x${string}`;
 
-      if (atomicSupported) {
-        const { id } = await sendCalls(config, {
-          account: address,
-          chainId: BASE_CHAIN_ID,
-          calls: toSendCalls([...withdrawTxs, ...depositTxs]),
-        });
-        const result = await waitForCallsStatus(config, { id, throwOnFailure: true });
+      const batch = await trySendCallsBatch(config, BASE_CHAIN_ID, address, [
+        ...withdrawTxs,
+        ...depositTxs,
+      ]);
 
-        withdrawHash = result.receipts?.[0]?.transactionHash ?? (id as `0x${string}`);
-        depositHash =
-          result.receipts?.[result.receipts.length - 1]?.transactionHash ?? (id as `0x${string}`);
+      if (batch) {
+        withdrawHash = batch.hashes[withdrawTxs.length - 1];
+        depositHash = batch.hashes[batch.hashes.length - 1];
       } else {
         const seqWithdrawHash = await signSequentially(withdrawTxs);
         const seqDepositHash = await signSequentially(depositTxs);

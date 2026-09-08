@@ -5,12 +5,20 @@ import { useState } from "react";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
+import { trySendCallsBatch } from "@/lib/eip5792Batch";
 import { formatBps, formatUsdc, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter, ProtocolApy } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError } from "@/lib/walletErrors";
 
 type Mode = "deposit" | "withdraw";
+
+// Unset unless a Paymaster & Bundler URL (e.g. from Coinbase Developer
+// Platform) is configured — omitted entirely rather than passed empty, same
+// pattern as NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID in app/wagmi.ts. Any actual
+// spending policy (first-deposit-only, per-address caps, etc.) is enforced by
+// the paymaster provider itself, not by this app.
+const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL;
 
 export function DepositWithdrawModal({
   adapter,
@@ -63,26 +71,36 @@ export function DepositWithdrawModal({
           ? await adapter.buildDepositTx(address, amount)
           : await adapter.buildWithdrawTx(address, amount);
 
+      // A deposit is [approve, deposit] — batching it via EIP-5792 collapses
+      // that into one signature, and lets a paymaster-capable wallet sponsor
+      // the gas. A withdrawal is already a single call, so there's nothing to
+      // batch and this path is skipped for it.
+      const batch =
+        mode === "deposit" ? await trySendCallsBatch(config, BASE_CHAIN_ID, address, txs, PAYMASTER_URL) : null;
+
       // The last tx in the list is always the actual deposit/withdraw call
       // (deposits are [approve, deposit]; withdrawals are just [withdraw]) —
       // that's the one worth showing in the user's activity feed, not the
       // approve step.
-      let actionHash: `0x${string}` | undefined;
-      for (const tx of txs) {
-        // No explicit chainId here — the upfront switchChainAsync above is
-        // the enforcement point. Passing chainId directly into writeContract
-        // as well caused a real failure ("Invalid parameters were provided
-        // to the RPC method") even when the wallet was already on Base,
-        // likely from wagmi bundling a redundant chain-switch handshake into
-        // the write call itself that the wallet didn't handle gracefully.
-        const hash = await writeContractAsync({
-          address: tx.address,
-          abi: tx.abi,
-          functionName: tx.functionName,
-          args: tx.args,
-        });
-        await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
-        actionHash = hash;
+      let actionHash: `0x${string}` | undefined = batch?.hashes[batch.hashes.length - 1];
+
+      if (!batch) {
+        for (const tx of txs) {
+          // No explicit chainId here — the upfront switchChainAsync above is
+          // the enforcement point. Passing chainId directly into writeContract
+          // as well caused a real failure ("Invalid parameters were provided
+          // to the RPC method") even when the wallet was already on Base,
+          // likely from wagmi bundling a redundant chain-switch handshake into
+          // the write call itself that the wallet didn't handle gracefully.
+          const hash = await writeContractAsync({
+            address: tx.address,
+            abi: tx.abi,
+            functionName: tx.functionName,
+            args: tx.args,
+          });
+          await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
+          actionHash = hash;
+        }
       }
 
       if (actionHash) {
@@ -158,6 +176,11 @@ export function DepositWithdrawModal({
         <p className="mt-1 text-sm text-zinc-500">
           Available: {formatUsdc(maxAmount)} USDC
         </p>
+        {mode === "deposit" && PAYMASTER_URL && (
+          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+            Gas may be sponsored for this deposit if your wallet supports it.
+          </p>
+        )}
 
         <div className="mt-4">
           <input

@@ -13,7 +13,9 @@ Non-custodial USDC savings on [Base](https://base.org). Compares live lending AP
 - Every market card links straight to its exact contract on Basescan, so you can verify the numbers — or exit directly through the protocol — without trusting this frontend.
 - Connect with **Base Account**, any injected wallet (**MetaMask**, **Rabby**, etc. — auto-detected via EIP-6963), or **WalletConnect**.
 - Deposit, withdraw, and rebalance directly against each protocol's own contracts (ERC-4626 for Morpho, native pool/market contracts for Moonwell/Aave/Compound) — no intermediary contract, no custody.
+- **Rebalancing** (moving from a held protocol to the recommended one) is a single action: it withdraws and deposits as one EIP-5792 batched call (`wallet_sendCalls`) when the wallet supports it, or two sequential signatures otherwise. Deposits get the same batching for their approve+deposit pair, and can optionally be gas-sponsored (see below).
 - After connecting, see total saved, estimated monthly/yearly earnings, and recent deposit/withdraw activity (kept locally in your browser) alongside a link to your full history on Basescan.
+- Every completed deposit, withdrawal, or rebalance ends on a receipt: what happened, the resulting APY, and a link to the real transaction(s) on Basescan.
 
 ## Why no third-party indexer
 
@@ -42,6 +44,15 @@ WalletConnect is omitted from the wallet picker unless you provide a project ID.
 ```bash
 cp .env.local.example .env.local
 # fill in NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+```
+
+### Optional: gas-sponsored deposits
+
+Deposits can be gas-sponsored via a paymaster (e.g. [Coinbase Developer Platform](https://portal.cdp.coinbase.com)). Without a paymaster URL configured, deposits work exactly as before — the depositor pays their own gas. With one set, the app *requests* sponsorship on deposit; whether it's actually granted, and any policy around that (first deposit only, per-address caps, daily limits), is entirely up to the paymaster provider's own dashboard, not this app. Sponsorship also only takes effect for wallets that support the EIP-5792 `paymasterService` capability (e.g. Base Account / Coinbase Wallet) — other wallets just sign normally.
+
+```bash
+cp .env.local.example .env.local
+# fill in NEXT_PUBLIC_PAYMASTER_URL
 ```
 
 ## Testing
