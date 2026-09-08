@@ -1,7 +1,7 @@
 "use client";
 
 import { useTxHistory } from "@/hooks/useTxHistory";
-import { formatUsdc } from "@/lib/format";
+import { formatUsdc, isValidTxHash } from "@/lib/format";
 
 function relativeTime(timestamp: number): string {
   const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
@@ -50,14 +50,21 @@ export function TransactionHistory({ address }: { address: string }) {
                 <p className="font-medium text-zinc-900 dark:text-zinc-50">
                   {formatUsdc(BigInt(tx.amount))}
                 </p>
-                <a
-                  href={`https://basescan.org/tx/${tx.hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
-                >
-                  View tx ↗
-                </a>
+                {isValidTxHash(tx.hash) ? (
+                  <a
+                    href={`https://basescan.org/tx/${tx.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    View tx ↗
+                  </a>
+                ) : (
+                  // Some wallets' EIP-5792 batches don't resolve to a real
+                  // per-call transaction hash (see lib/format.ts's
+                  // isValidTxHash) — no link is better than a broken one.
+                  <p className="text-xs text-zinc-400">Hash unavailable</p>
+                )}
               </div>
             </li>
           ))}

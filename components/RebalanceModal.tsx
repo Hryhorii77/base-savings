@@ -6,7 +6,7 @@ import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
-import { formatBps, formatUsdc } from "@/lib/format";
+import { formatBps, formatUsdc, isValidTxHash } from "@/lib/format";
 import type { ProtocolAdapter, TxRequest } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError } from "@/lib/walletErrors";
@@ -133,22 +133,26 @@ export function RebalanceModal({
             <span className="font-semibold">~{formatBps(targetApyBps)}</span> APY. Withdraw anytime.
           </p>
           <div className="mt-3 flex gap-4 text-xs">
-            <a
-              href={`https://basescan.org/tx/${receipt.withdrawHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline dark:text-blue-400"
-            >
-              Withdraw tx ↗
-            </a>
-            <a
-              href={`https://basescan.org/tx/${receipt.depositHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline dark:text-blue-400"
-            >
-              Deposit tx ↗
-            </a>
+            {isValidTxHash(receipt.withdrawHash) && (
+              <a
+                href={`https://basescan.org/tx/${receipt.withdrawHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Withdraw tx ↗
+              </a>
+            )}
+            {isValidTxHash(receipt.depositHash) && (
+              <a
+                href={`https://basescan.org/tx/${receipt.depositHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Deposit tx ↗
+              </a>
+            )}
           </div>
           <button
             type="button"

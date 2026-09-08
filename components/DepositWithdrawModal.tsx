@@ -6,7 +6,7 @@ import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
-import { formatBps, formatUsdc, parseUsdc } from "@/lib/format";
+import { formatBps, formatUsdc, isValidTxHash, parseUsdc } from "@/lib/format";
 import type { ProtocolAdapter, ProtocolApy } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
 import { friendlyError } from "@/lib/walletErrors";
@@ -145,7 +145,7 @@ export function DepositWithdrawModal({
               </>
             )}
           </p>
-          {receiptHash && (
+          {receiptHash && isValidTxHash(receiptHash) && (
             <a
               href={`https://basescan.org/tx/${receiptHash}`}
               target="_blank"

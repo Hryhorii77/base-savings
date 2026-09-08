@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBps, formatUsdc, parseUsdc } from "./format";
+import { formatBps, formatUsdc, isValidTxHash, parseUsdc } from "./format";
 
 describe("formatUsdc", () => {
   it("formats zero", () => {
@@ -62,5 +62,30 @@ describe("formatBps", () => {
 
   it("formats sub-1% values", () => {
     expect(formatBps(25)).toBe("0.25%");
+  });
+});
+
+describe("isValidTxHash", () => {
+  it("accepts a real 32-byte transaction hash", () => {
+    expect(isValidTxHash("0x" + "a".repeat(64))).toBe(true);
+  });
+
+  it("rejects an EIP-5792 batch id shaped like a hash+chainId concatenation", () => {
+    // Observed live: Coinbase Smart Wallet's wallet_sendCalls returned an id
+    // of this exact shape (64 hex chars + a 64-hex-char padded chainId) when
+    // it didn't populate per-call receipts — 128 hex chars, not 64.
+    expect(isValidTxHash("0x" + "b".repeat(64) + "0".repeat(60) + "2105")).toBe(false);
+  });
+
+  it("rejects a batch id shorter than a real hash", () => {
+    expect(isValidTxHash("0xdeadbeef")).toBe(false);
+  });
+
+  it("rejects a hash missing the 0x prefix", () => {
+    expect(isValidTxHash("a".repeat(64))).toBe(false);
+  });
+
+  it("rejects non-hex characters", () => {
+    expect(isValidTxHash("0x" + "g".repeat(64))).toBe(false);
   });
 });

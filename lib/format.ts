@@ -18,3 +18,14 @@ export function parseUsdc(input: string): bigint {
 export function formatBps(bps: number): string {
   return `${(bps / 100).toFixed(2)}%`;
 }
+
+// A real transaction hash is exactly 32 bytes. EIP-5792's wallet_sendCalls
+// returns an opaque batch id instead — not a transaction hash, and not
+// guaranteed to even be the right length — that some wallets don't resolve
+// to a real per-call hash via wallet_getCallsStatus's receipts field
+// (observed live with Coinbase Smart Wallet: receipts came back empty).
+// Basescan (correctly) rejects anything that isn't a real hash, so this
+// guards every "View transaction" link from ever pointing at a batch id.
+export function isValidTxHash(hash: string): boolean {
+  return /^0x[0-9a-fA-F]{64}$/.test(hash);
+}
