@@ -97,7 +97,7 @@ export function DepositWithdrawModal({
             functionName: tx.functionName,
             args: tx.args,
           });
-          await waitForSuccessfulReceipt(config, { hash, chainId: BASE_CHAIN_ID });
+          await waitForSuccessfulReceipt(config, { hash, chainId: BASE_CHAIN_ID, account: address });
           actionHash = hash;
         }
       }

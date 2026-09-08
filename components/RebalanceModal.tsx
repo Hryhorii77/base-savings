@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { Address } from "viem";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
@@ -42,7 +43,10 @@ export function RebalanceModal({
   // Sequential fallback for wallets without EIP-5792 batch support — signs
   // each call in order and returns the final tx hash (the last call in a
   // deposit/withdraw list is always the real action; earlier ones are approvals).
-  async function signSequentially(txs: TxRequest[]): Promise<`0x${string}` | undefined> {
+  async function signSequentially(
+    txs: TxRequest[],
+    account: Address
+  ): Promise<`0x${string}` | undefined> {
     let lastHash: `0x${string}` | undefined;
     for (const tx of txs) {
       const hash = await writeContractAsync({
@@ -51,7 +55,7 @@ export function RebalanceModal({
         functionName: tx.functionName,
         args: tx.args,
       });
-      await waitForSuccessfulReceipt(config, { hash, chainId: BASE_CHAIN_ID });
+      await waitForSuccessfulReceipt(config, { hash, chainId: BASE_CHAIN_ID, account });
       lastHash = hash;
     }
     return lastHash;
@@ -81,8 +85,8 @@ export function RebalanceModal({
         withdrawHash = batch.hashes[withdrawTxs.length - 1];
         depositHash = batch.hashes[batch.hashes.length - 1];
       } else {
-        const seqWithdrawHash = await signSequentially(withdrawTxs);
-        const seqDepositHash = await signSequentially(depositTxs);
+        const seqWithdrawHash = await signSequentially(withdrawTxs, address);
+        const seqDepositHash = await signSequentially(depositTxs, address);
         // Every adapter's buildWithdrawTx/buildDepositTx returns at least one
         // call, so signSequentially always resolves a hash here in practice —
         // guard explicitly anyway rather than assuming it away.

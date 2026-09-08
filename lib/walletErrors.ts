@@ -1,5 +1,7 @@
+import type { Address } from "viem";
 import type { Config } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
+import { hasFailedUserOperation } from "./erc4337";
 
 // Thrown when a transaction is mined but its call reverted — most visible
 // with smart-contract wallets (Coinbase Smart Wallet, Base Account), where
@@ -15,16 +17,25 @@ export class TransactionRevertedError extends Error {
 }
 
 // Wraps waitForTransactionReceipt with the success check it doesn't do
-// itself — observed live: a withdrawal's outer transaction reported
-// status: success (the bundler was paid) while the inner call actually
-// reverted and moved zero funds, and this app recorded it as a completed
-// withdrawal anyway because nothing ever looked at receipt.status.
+// itself. Two distinct failure modes, both observed live on the same kind
+// of withdrawal:
+//  1. A plain reverted transaction: receipt.status reads 'reverted' — the
+//     ordinary case, straightforward to check.
+//  2. A smart-contract-wallet (ERC-4337) transaction whose *outer* bundle
+//     succeeded (the bundler got paid, receipt.status reads 'success') while
+//     the *inner* UserOperation it carried reverted and moved zero funds.
+//     Basescan surfaces this as "Error Occurred [execution reverted]"; the
+//     only way to see it programmatically is decoding the EntryPoint's own
+//     UserOperationEvent log (see lib/erc4337.ts) — receipt.status alone
+//     cannot distinguish this from a genuine success.
+// Missing case 2 is exactly how this app previously reported a reverted,
+// fund-moving-nothing withdrawal as "Withdrawal complete."
 export async function waitForSuccessfulReceipt(
   config: Config,
-  params: { hash: `0x${string}`; chainId: number }
+  params: { hash: `0x${string}`; chainId: number; account: Address }
 ) {
   const receipt = await waitForTransactionReceipt(config, params);
-  if (receipt.status === "reverted") {
+  if (receipt.status === "reverted" || hasFailedUserOperation(receipt.logs, params.account)) {
     throw new TransactionRevertedError(params.hash);
   }
   return receipt;
