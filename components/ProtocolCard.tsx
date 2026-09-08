@@ -3,8 +3,8 @@
 import { useState } from "react";
 import type { ProtocolApy } from "@/lib/protocols/types";
 import { PROTOCOL_ADAPTERS } from "@/lib/protocols";
-import { LOW_LIQUIDITY_THRESHOLD, PROTOCOL_DEPOSITS_ENABLED } from "@/lib/config";
 import { formatBps, formatUsdc } from "@/lib/format";
+import { getProtocolWarning } from "@/lib/protocolHealth";
 import { DepositWithdrawModal } from "./DepositWithdrawModal";
 
 export function ProtocolCard({
@@ -20,8 +20,8 @@ export function ProtocolCard({
   if (!apy) return null;
 
   const adapter = PROTOCOL_ADAPTERS.find((a) => a.id === apy.protocol);
-  const isIncident = !PROTOCOL_DEPOSITS_ENABLED[apy.protocol];
-  const isLowLiquidity = !isIncident && apy.liquidityRatio < LOW_LIQUIDITY_THRESHOLD;
+  const warning = getProtocolWarning(apy);
+  const isIncident = warning === "incident";
 
   if (!adapter) return null;
 
@@ -43,12 +43,12 @@ export function ProtocolCard({
           {formatBps(apy.apyBps)} APY
         </span>
       </div>
-      {isIncident && (
+      {warning === "incident" && (
         <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
           ⚠ Active security incident — new deposits are paused. Withdrawals still work.
         </p>
       )}
-      {isLowLiquidity && (
+      {warning === "low-liquidity" && (
         <p className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
           ⚠ Low liquidity — only {(apy.liquidityRatio * 100).toFixed(0)}% of supply is
           currently withdrawable

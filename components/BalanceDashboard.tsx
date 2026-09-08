@@ -5,6 +5,7 @@ import { useProtocolApys } from "@/hooks/useProtocolApys";
 import { useUserPositions } from "@/hooks/useUserPositions";
 import { USDC_ADDRESS } from "@/lib/config";
 import { formatUsdc } from "@/lib/format";
+import { sortByHealth } from "@/lib/protocolHealth";
 import { AllocationBanner } from "./AllocationBanner";
 import { ProtocolCard } from "./ProtocolCard";
 import { TransactionHistory } from "./TransactionHistory";
@@ -121,7 +122,7 @@ export function BalanceDashboard() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {apys.map((apy) => (
+        {sortByHealth(apys).map((apy) => (
           <ProtocolCard
             key={apy.protocol}
             apy={apy}

@@ -9,6 +9,7 @@ import { RecommendedNowBanner } from "@/components/RecommendedNowBanner";
 import { TrustStrip } from "@/components/TrustStrip";
 import { WalletConnectButton } from "@/components/WalletConnectButton";
 import { useProtocolApys } from "@/hooks/useProtocolApys";
+import { sortByHealth } from "@/lib/protocolHealth";
 
 function PublicRates() {
   const { data: apys, isLoading, isError } = useProtocolApys();
@@ -24,7 +25,7 @@ function PublicRates() {
     <div className="flex flex-col gap-4">
       <RecommendedNowBanner apys={apys} />
       <div className="grid gap-4 sm:grid-cols-2">
-        {apys.map((apy) => (
+        {sortByHealth(apys).map((apy) => (
           <PublicRateCard key={apy.protocol} apy={apy} />
         ))}
       </div>
