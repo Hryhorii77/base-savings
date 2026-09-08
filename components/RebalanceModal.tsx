@@ -3,13 +3,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useAccount, useConfig, useSwitchChain, useWriteContract } from "wagmi";
-import { waitForTransactionReceipt } from "wagmi/actions";
 import { BASE_CHAIN_ID } from "@/lib/config";
 import { trySendCallsBatch } from "@/lib/eip5792Batch";
 import { formatBps, formatUsdc, isValidTxHash } from "@/lib/format";
 import type { ProtocolAdapter, TxRequest } from "@/lib/protocols/types";
 import { recordTx } from "@/lib/txHistory";
-import { friendlyError } from "@/lib/walletErrors";
+import { friendlyError, waitForSuccessfulReceipt } from "@/lib/walletErrors";
 
 export function RebalanceModal({
   sourceAdapter,
@@ -52,7 +51,7 @@ export function RebalanceModal({
         functionName: tx.functionName,
         args: tx.args,
       });
-      await waitForTransactionReceipt(config, { hash, chainId: BASE_CHAIN_ID });
+      await waitForSuccessfulReceipt(config, { hash, chainId: BASE_CHAIN_ID });
       lastHash = hash;
     }
     return lastHash;
