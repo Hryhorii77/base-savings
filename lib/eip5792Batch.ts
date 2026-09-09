@@ -1,6 +1,7 @@
 import type { Address } from "viem";
 import type { Config } from "wagmi";
 import { getCapabilities, sendCalls, waitForCallsStatus } from "wagmi/actions";
+import { resolveTransactionHash } from "./erc4337";
 import { toSendCalls } from "./rebalanceCalls";
 import type { TxRequest } from "./protocols/types";
 
@@ -66,6 +67,16 @@ export async function trySendCallsBatch(
     ...(paymasterUrl ? { capabilities: { paymasterService: { url: paymasterUrl, optional: true } } } : {}),
   });
   const result = await waitForCallsStatus(config, { id, throwOnFailure: true });
+  const rawHashes = extractCallHashes(txs.length, id, result.receipts);
 
-  return { hashes: extractCallHashes(txs.length, id, result.receipts) };
+  // Coinbase Smart Wallet doesn't populate result.receipts in practice, so
+  // rawHashes typically falls back to the opaque batch id here — try to
+  // recover the real transaction hash from it (see lib/erc4337.ts). Falls
+  // back to the raw value (unresolvable → renders as "hash unavailable"
+  // downstream, exactly as before this existed) if that doesn't pan out.
+  const hashes = await Promise.all(
+    rawHashes.map(async (hash) => (await resolveTransactionHash(hash)) ?? hash)
+  );
+
+  return { hashes };
 }

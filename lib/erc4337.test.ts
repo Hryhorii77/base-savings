@@ -1,6 +1,6 @@
 import type { Address, Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { ENTRY_POINT_V06, hasFailedUserOperation } from "./erc4337";
+import { ENTRY_POINT_V06, extractUserOpHash, hasFailedUserOperation } from "./erc4337";
 
 const SENDER: Address = "0x9b3F205E43dc9FcC1cc2Fe6d9dCD0357769A6Bae";
 
@@ -61,5 +61,40 @@ describe("hasFailedUserOperation", () => {
         "00000000000000000000000000000000000000000000000000000000000a0b16") as `0x${string}`,
     };
     expect(hasFailedUserOperation([successfulLog], SENDER)).toBe(false);
+  });
+});
+
+describe("extractUserOpHash", () => {
+  // Pulled live from this app's own tx history for a real rebalance: the
+  // deposit leg's stored "hash" (wallet_sendCalls' batch id, since
+  // wallet_getCallsStatus never supplied a real receipt for it) was this
+  // exact 128-hex-char value. Cross-referenced independently against
+  // https://basescan.org/tx/0xff7950067d6e72490150d6530a915d404caefee2512fe08fa30670b37e3ddf5a
+  // — that transaction's own UserOperationEvent log decodes to
+  // userOpHash 0xf09a3776e456876261a1c6ec998ff56eba335e3f0a3247d23e5cd9d1075d0ad2,
+  // an exact match for the first 32 bytes below. The trailing 32 bytes are
+  // 0x2105 (8453, Base's chain id) left-padded.
+  const REAL_BATCH_ID =
+    "0xf09a3776e456876261a1c6ec998ff56eba335e3f0a3247d23e5cd9d1075d0ad20000000000000000000000000000000000000000000000000000000000002105";
+  const REAL_USER_OP_HASH = "0xf09a3776e456876261a1c6ec998ff56eba335e3f0a3247d23e5cd9d1075d0ad2";
+
+  it("extracts the real userOpHash from a genuine batch id", () => {
+    expect(extractUserOpHash(REAL_BATCH_ID)).toBe(REAL_USER_OP_HASH);
+  });
+
+  it("returns null for an already-valid 32-byte transaction hash", () => {
+    expect(extractUserOpHash("0x" + "a".repeat(64))).toBeNull();
+  });
+
+  it("returns null for a value that isn't hex", () => {
+    expect(extractUserOpHash("0x" + "g".repeat(128))).toBeNull();
+  });
+
+  it("returns null for a value missing the 0x prefix", () => {
+    expect(extractUserOpHash("f".repeat(128))).toBeNull();
+  });
+
+  it("returns null for an unrelated length", () => {
+    expect(extractUserOpHash("0xdeadbeef")).toBeNull();
   });
 });
