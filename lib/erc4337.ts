@@ -96,6 +96,30 @@ export function extractUserOpHash(hashOrBatchId: string): Hex | null {
 // margin, not an expected wait. ~2s block time on Base, so ~33 minutes.
 const USER_OP_LOG_SEARCH_BLOCKS = 1_000n;
 
+// Retry delays for the log lookup below — observed live: querying moments
+// after wallet_sendCalls reports success can hit a backend node that hasn't
+// caught up to the block the UserOperationEvent actually landed in yet, the
+// same RPC-provider eventual-consistency gap that motivated the double
+// refetch in lib/refreshPositions.ts. Re-running the same query a few
+// seconds later (once the node has caught up) is enough — confirmed live
+// that the exact log this initially missed was found immediately when
+// re-queried minutes later, so this isn't a "log doesn't exist" case, it's
+// purely a timing one.
+const RESOLVE_RETRY_DELAYS_MS = [1_000, 2_000, 3_000];
+
+async function findUserOperationTransactionHash(userOpHash: Hex): Promise<Hex | null> {
+  const latestBlock = await publicClient.getBlockNumber();
+  const fromBlock = latestBlock > USER_OP_LOG_SEARCH_BLOCKS ? latestBlock - USER_OP_LOG_SEARCH_BLOCKS : 0n;
+  const logs = await publicClient.getLogs({
+    address: ENTRY_POINT_V06,
+    event: userOperationEventAbiItem,
+    args: { userOpHash },
+    fromBlock,
+    toBlock: "latest",
+  });
+  return logs[0]?.transactionHash ?? null;
+}
+
 /**
  * Recovers a real, Basescan-linkable transaction hash from whatever
  * wallet_sendCalls / wallet_getCallsStatus actually gave us. If it's already
@@ -104,8 +128,8 @@ const USER_OP_LOG_SEARCH_BLOCKS = 1_000n;
  * batch id and looks up the EntryPoint's own UserOperationEvent log for it —
  * every log carries the real transaction hash at the top level regardless of
  * what the wallet's own RPC responses say. Returns null if nothing can be
- * recovered (callers fall back to their existing "hash unavailable" display,
- * exactly as before this existed).
+ * recovered after retrying (callers fall back to their existing "hash
+ * unavailable" display, exactly as before this existed).
  */
 export async function resolveTransactionHash(hashOrBatchId: string): Promise<Hex | null> {
   if (isValidTxHash(hashOrBatchId)) return hashOrBatchId as Hex;
@@ -113,18 +137,14 @@ export async function resolveTransactionHash(hashOrBatchId: string): Promise<Hex
   const userOpHash = extractUserOpHash(hashOrBatchId);
   if (!userOpHash) return null;
 
-  try {
-    const latestBlock = await publicClient.getBlockNumber();
-    const fromBlock = latestBlock > USER_OP_LOG_SEARCH_BLOCKS ? latestBlock - USER_OP_LOG_SEARCH_BLOCKS : 0n;
-    const logs = await publicClient.getLogs({
-      address: ENTRY_POINT_V06,
-      event: userOperationEventAbiItem,
-      args: { userOpHash },
-      fromBlock,
-      toBlock: "latest",
-    });
-    return logs[0]?.transactionHash ?? null;
-  } catch {
-    return null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const hash = await findUserOperationTransactionHash(userOpHash);
+      if (hash) return hash;
+    } catch {
+      // fall through to retry/give-up below
+    }
+    if (attempt >= RESOLVE_RETRY_DELAYS_MS.length) return null;
+    await new Promise((resolve) => setTimeout(resolve, RESOLVE_RETRY_DELAYS_MS[attempt]));
   }
 }
