@@ -36,7 +36,7 @@ export function TransactionHistory({ address }: { address: string }) {
           Deposits and withdrawals made through this app will show up here.
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
+        <ul className="mt-3 max-h-[420px] divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-800">
           {history.map((tx) => (
             <li key={tx.hash} className="flex items-center justify-between py-2.5 text-sm">
               <div>
